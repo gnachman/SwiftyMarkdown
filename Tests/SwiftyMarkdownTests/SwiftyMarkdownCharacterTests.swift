@@ -29,55 +29,6 @@ class SwiftyMarkdownStylingTests: SwiftyMarkdownCharacterTests {
 		}
 		XCTAssertEqual(results.foundStyles, results.expectedStyles)
 		XCTAssertEqual(results.attributedString.string, challenge.output)
-		return
-		
-		challenge = TokenTest(input: """
-		An asterisk: *
-		Line break
-		""", output: """
-		An asterisk: *
-		Line break
-		""", tokens: [
-			Token(type: .string, inputString: "An asterisk: *", characterStyles: []),
-			Token(type: .string, inputString: "Line break", characterStyles: [])
-		])
-		results = self.attempt(challenge)
-		XCTAssertEqual(results.stringTokens.count, challenge.tokens.count )
-		XCTAssertEqual(results.foundStyles, results.expectedStyles)
-		XCTAssertEqual(results.attributedString.string, challenge.output)
-		
-		return
-			
-			challenge = TokenTest(input: "A [referenced link][link]\n[link]: https://www.neverendingvoyage.com/", output: "A referenced link", tokens: [
-				Token(type: .string, inputString: "A ", characterStyles: []),
-				Token(type: .string, inputString: "referenced link", characterStyles: [CharacterStyle.link])
-			])
-		results = self.attempt(challenge)
-		if results.stringTokens.count == challenge.tokens.count {
-			for (idx, token) in results.stringTokens.enumerated() {
-				XCTAssertEqual(token.inputString, challenge.tokens[idx].inputString)
-				XCTAssertEqual(token.characterStyles as? [CharacterStyle], challenge.tokens[idx].characterStyles as?  [CharacterStyle])
-			}
-		} else {
-			XCTAssertEqual(results.stringTokens.count, challenge.tokens.count)
-		}
-		XCTAssertEqual(results.foundStyles, results.expectedStyles)
-		XCTAssertEqual(results.attributedString.string, challenge.output)
-		if results.links.count == 1 {
-			XCTAssertEqual(results.links[0].metadataStrings.first, "https://www.neverendingvoyage.com/")
-		} else {
-			XCTFail("Incorrect link count. Expecting 1, found \(results.links.count)")
-		}
-		
-		
-		
-		challenge = TokenTest(input: "A [referenced link][link]\n[notLink]: https://www.neverendingvoyage.com/", output: "A [referenced link][link]", tokens: [
-			Token(type: .string, inputString: "A [referenced link][link]", characterStyles: [])
-		])
-		results = self.attempt(challenge, rules: [.links, .images, .referencedLinks])
-		XCTAssertEqual(results.attributedString.string, challenge.output)
-		XCTAssertEqual(results.links.count, 0)
-		
 	}
 	
 	func testThatBoldTraitsAreRecognised() {
