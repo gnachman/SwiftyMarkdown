@@ -22,8 +22,16 @@ public protocol LineStyling {
 public struct SwiftyLine : CustomStringConvertible {
     public let line : String
     public let lineStyle : LineStyling
+    public let literal: Bool
+
     public var description: String {
-        return self.line
+        return self.line + " (\(String(describing: lineStyle))"
+    }
+
+    init(line: String, lineStyle: LineStyling, literal: Bool = false) {
+        self.line = line
+        self.lineStyle = lineStyle
+        self.literal = literal
     }
 }
 
@@ -69,6 +77,16 @@ public struct LineRule {
     }
 }
 
+public struct BlockRule: Equatable {
+    public static func == (lhs: BlockRule, rhs: BlockRule) -> Bool {
+        return lhs.startRegex === rhs.startRegex
+    }
+
+    let startRegex: NSRegularExpression
+    let endToken: String
+    let type: LineStyling
+}
+
 public class SwiftyLineProcessor {
     
 	public var processEmptyStrings : LineStyling?
@@ -76,13 +94,18 @@ public class SwiftyLineProcessor {
 	
 	var closeToken : String? = nil
     let defaultType : LineStyling
-    
+
+    let blockRules : [BlockRule]
     let lineRules : [LineRule]
 	let frontMatterRules : [FrontMatterRule]
 	
 	let perfomanceLog = PerformanceLog(with: "SwiftyLineProcessorPerformanceLogging", identifier: "Line Processor", log: OSLog.swiftyLineProcessorPerformance)
 	    
-	public init( rules : [LineRule], defaultRule: LineStyling, frontMatterRules : [FrontMatterRule] = []) {
+    public init(blockRules : [BlockRule],
+                rules : [LineRule],
+                defaultRule: LineStyling,
+                frontMatterRules : [FrontMatterRule] = []) {
+        self.blockRules = blockRules
         self.lineRules = rules
         self.defaultType = defaultRule
 		self.frontMatterRules = frontMatterRules
@@ -107,8 +130,22 @@ public class SwiftyLineProcessor {
         }
         return output
     }
-    
-    func processLineLevelAttributes( _ text : String ) -> SwiftyLine? {
+
+    func processBlockTokens(_ currentRule: BlockRule?, line: String) -> BlockRule? {
+        if let rule = currentRule {
+            if rule.endToken == line {
+                return nil
+            }
+            return rule
+        }
+
+        return blockRules.first { rule in
+            rule.startRegex.firstMatch(in: line,
+                                       range: NSRange(0..<(line as NSString).length)) != nil
+        }
+    }
+
+    func processLineLevelAttributes( _ text : String) -> SwiftyLine? {
         if text.isEmpty, let style = processEmptyStrings {
             return SwiftyLine(line: "", lineStyle: style)
         }
@@ -209,7 +246,7 @@ public class SwiftyLineProcessor {
 	}
     
     public func process( _ string : String ) -> [SwiftyLine] {
-        var foundAttributes : [SwiftyLine] = []
+        var swiftyLines : [SwiftyLine] = []
 		
 		
 		self.perfomanceLog.start()
@@ -219,29 +256,53 @@ public class SwiftyLineProcessor {
 		
 		self.perfomanceLog.tag(with: "(Front matter completed)")
 		
+        var currentBlockRule: BlockRule?
 
         for  heading in lines {
             
             if processEmptyStrings == nil && heading.isEmpty {
                 continue
             }
-			            
-			guard let input = processLineLevelAttributes(String(heading)) else {
+
+            if let update = processBlockTokens(currentBlockRule, line: String(heading)) {
+                if currentBlockRule == nil {
+                    currentBlockRule = update
+                    continue
+                }
+            } else {
+                defer {
+                    currentBlockRule = nil
+                }
+                if currentBlockRule != nil {
+                    // Skip over end token
+                    continue
+                }
+            }
+
+            if let blockRule = currentBlockRule {
+                swiftyLines.append(SwiftyLine(line: String(heading),
+                                              lineStyle: blockRule.type,
+                                              literal: true))
+                continue
+            }
+
+            guard let input = processLineLevelAttributes(String(heading)) else {
 				continue
 			}
-			
-            if let existentPrevious = input.lineStyle.styleIfFoundStyleAffectsPreviousLine(), foundAttributes.count > 0 {
-                if let idx = foundAttributes.firstIndex(of: foundAttributes.last!) {
-                    let updatedPrevious = foundAttributes.last!
-                    foundAttributes[idx] = SwiftyLine(line: updatedPrevious.line, lineStyle: existentPrevious)
+
+            if let existentPrevious = input.lineStyle.styleIfFoundStyleAffectsPreviousLine(),
+               swiftyLines.count > 0 {
+                if let idx = swiftyLines.firstIndex(of: swiftyLines.last!) {
+                    let updatedPrevious = swiftyLines.last!
+                    swiftyLines[idx] = SwiftyLine(line: updatedPrevious.line, lineStyle: existentPrevious)
                 }
                 continue
             }
-            foundAttributes.append(input)
+            swiftyLines.append(input)
 			
 			self.perfomanceLog.tag(with: "(line completed: \(heading)")
         }
-        return foundAttributes
+        return swiftyLines
     }
     
 }

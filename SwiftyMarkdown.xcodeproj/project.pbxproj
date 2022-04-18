@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		A682275C280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A682275B280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift */; };
 		F4ACB6CB23E8A5C500EA665D /* SwiftyScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6CA23E8A5C500EA665D /* SwiftyScanner.swift */; };
 		F4ACB6CE23E8A88400EA665D /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6CD23E8A88400EA665D /* Token.swift */; };
 		F4ACB6D023E8A8A500EA665D /* CharacterRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6CF23E8A8A500EA665D /* CharacterRule.swift */; };
@@ -59,6 +60,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A682275B280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyMarkdownBlockTests.swift; sourceTree = "<group>"; };
 		F4ACB6CA23E8A5C500EA665D /* SwiftyScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyScanner.swift; sourceTree = "<group>"; };
 		F4ACB6CD23E8A88400EA665D /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 		F4ACB6CF23E8A8A500EA665D /* CharacterRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterRule.swift; sourceTree = "<group>"; };
@@ -125,6 +127,7 @@
 				OBJ_20 /* SwiftyMarkdownLinkTests.swift */,
 				OBJ_21 /* SwiftyMarkdownPerformanceTests.swift */,
 				OBJ_22 /* XCTest+SwiftyMarkdown.swift */,
+				A682275B280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift */,
 			);
 			name = SwiftyMarkdownTests;
 			path = Tests/SwiftyMarkdownTests;
@@ -301,6 +304,7 @@
 			files = (
 				OBJ_63 /* SwiftyMarkdownAttributedStringTests.swift in Sources */,
 				OBJ_64 /* SwiftyMarkdownCharacterTests.swift in Sources */,
+				A682275C280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift in Sources */,
 				OBJ_65 /* SwiftyMarkdownLineTests.swift in Sources */,
 				OBJ_66 /* SwiftyMarkdownLinkTests.swift in Sources */,
 				OBJ_67 /* SwiftyMarkdownPerformanceTests.swift in Sources */,

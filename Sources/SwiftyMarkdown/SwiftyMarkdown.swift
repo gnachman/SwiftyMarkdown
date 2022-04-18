@@ -154,7 +154,14 @@ If that is not set, then the system default will be used.
 	static public var frontMatterRules = [
 		FrontMatterRule(openTag: "---", closeTag: "---", keyValueSeparator: ":")
 	]
-	
+
+    static public var blockRules = [
+        BlockRule(startRegex: try! NSRegularExpression(pattern: "^```[a-z]*$",
+                                                       options: [.anchorsMatchLines]),
+                  endToken: "```",
+                  type: MarkdownLineStyle.codeblock)
+    ]
+
 	static public var lineRules = [
 		LineRule(token: "=", type: MarkdownLineStyle.previousH1, removeFrom: .entireLine, changeAppliesTo: .previous),
 		LineRule(token: "-", type: MarkdownLineStyle.previousH2, removeFrom: .entireLine, changeAppliesTo: .previous),
@@ -175,7 +182,7 @@ If that is not set, then the system default will be used.
 		LineRule(token: "#### ",type : MarkdownLineStyle.h4, removeFrom: .both),
 		LineRule(token: "### ",type : MarkdownLineStyle.h3, removeFrom: .both),
 		LineRule(token: "## ",type : MarkdownLineStyle.h2, removeFrom: .both),
-		LineRule(token: "# ",type : MarkdownLineStyle.h1, removeFrom: .both)
+		LineRule(token: "# ",type : MarkdownLineStyle.h1, removeFrom: .both),
 	]
 	
 	static public var characterRules = [
@@ -205,7 +212,10 @@ If that is not set, then the system default will be used.
 		CharacterRule(primaryTag: CharacterRuleTag(tag: "_", type: .repeating), otherTags: [], styles: [1 : CharacterStyle.italic, 2 : CharacterStyle.bold], minTags:1 , maxTags:2)
 	]
 	
-	let lineProcessor = SwiftyLineProcessor(rules: SwiftyMarkdown.lineRules, defaultRule: MarkdownLineStyle.body, frontMatterRules: SwiftyMarkdown.frontMatterRules)
+    let lineProcessor = SwiftyLineProcessor(blockRules: SwiftyMarkdown.blockRules,
+                                            rules: SwiftyMarkdown.lineRules,
+                                            defaultRule: MarkdownLineStyle.body,
+                                            frontMatterRules: SwiftyMarkdown.frontMatterRules)
 	let tokeniser = SwiftyTokeniser(with: SwiftyMarkdown.characterRules)
 	
 	/// The styles to apply to any H1 headers found in the Markdown
@@ -401,8 +411,16 @@ If that is not set, then the system default will be used.
 		self.lineProcessor.processEmptyStrings = MarkdownLineStyle.body
 		let foundAttributes : [SwiftyLine] = lineProcessor.process(self.string)
 		
-		let references : [SwiftyLine] = foundAttributes.filter({ $0.line.starts(with: "[") && $0.line.contains("]:") })
-		let referencesRemoved : [SwiftyLine] = foundAttributes.filter({ !($0.line.starts(with: "[") && $0.line.contains("]:") ) })
+		let references : [SwiftyLine] = foundAttributes.filter {
+            return (!$0.literal &&
+                    $0.line.starts(with: "[") &&
+                    $0.line.contains("]:"))
+        }
+		let referencesRemoved : [SwiftyLine] = foundAttributes.filter {
+            return ($0.literal ||
+                    !($0.line.starts(with: "[") &&
+                      $0.line.contains("]:")))
+        }
 		var keyValuePairs : [String : String] = [:]
 		for line in references {
 			let strings = line.line.components(separatedBy: "]:")
@@ -426,7 +444,14 @@ If that is not set, then the system default will be used.
 			if idx > 0 {
 				attributedString.append(NSAttributedString(string: "\n"))
 			}
-			let finalTokens = self.tokeniser.process(line.line)
+            let finalTokens: [Token]
+            if line.literal {
+                finalTokens = [Token(type: .string,
+                                     inputString: line.line,
+                                     characterStyles: [CharacterStyle.code])]
+            } else {
+                finalTokens = self.tokeniser.process(line.line)
+            }
 			self.previouslyFoundTokens.append(contentsOf: finalTokens)
 			self.perfomanceLog.tag(with: "(tokenising complete for line \(idx)")
 			
