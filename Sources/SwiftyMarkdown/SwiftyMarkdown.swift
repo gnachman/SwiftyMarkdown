@@ -241,7 +241,9 @@ If that is not set, then the system default will be used.
                                             defaultRule: MarkdownLineStyle.body,
                                             frontMatterRules: SwiftyMarkdown.frontMatterRules)
     let tokeniser = SwiftyTokeniser(with: SwiftyMarkdown.characterRules)
-    
+
+    open var tabStopInterval = CGFloat(10)
+
     /// The styles to apply to any H1 headers found in the Markdown
     open var h1 = LineStyles()
     
@@ -501,25 +503,30 @@ extension SwiftyMarkdown {
         guard let markdownLineStyle = line.lineStyle as? MarkdownLineStyle else {
             preconditionFailure("The passed line style is not a valid Markdown Line Style")
         }
-        
+
+        // listItem is the symbol at the start of an item, such as a bullet or number.
         var listItem = self.bullet
+        var postSpace = " "
         switch markdownLineStyle {
         case .orderedList:
             self.orderedListCount += 1
             self.orderedListIndentFirstOrderCount = 0
             self.orderedListIndentSecondOrderCount = 0
             listItem = "\(self.orderedListCount)."
+            postSpace = "\t"
         case .orderedListIndentFirstOrder, .unorderedListIndentFirstOrder:
             self.orderedListIndentFirstOrderCount += 1
             self.orderedListIndentSecondOrderCount = 0
             if markdownLineStyle == .orderedListIndentFirstOrder {
                 listItem = "\(self.orderedListIndentFirstOrderCount)."
+                postSpace = "\t"
             }
             
         case .orderedListIndentSecondOrder, .unorderedListIndentSecondOrder:
             self.orderedListIndentSecondOrderCount += 1
             if markdownLineStyle == .orderedListIndentSecondOrder {
                 listItem = "\(self.orderedListIndentSecondOrderCount)."
+                postSpace = "\t"
             }
             
         default:
@@ -556,7 +563,7 @@ extension SwiftyMarkdown {
             attributes[.paragraphStyle] = paragraphStyle
         case .unorderedList, .unorderedListIndentFirstOrder, .unorderedListIndentSecondOrder, .orderedList, .orderedListIndentFirstOrder, .orderedListIndentSecondOrder:
             
-            let interval : CGFloat = 30
+            let interval = tabStopInterval
             var addition = interval
             var indent = ""
             switch line.lineStyle as! MarkdownLineStyle {
@@ -578,8 +585,8 @@ extension SwiftyMarkdown {
             paragraphStyle.headIndent = addition
 
             attributes[.paragraphStyle] = paragraphStyle
-            finalTokens.insert(Token(type: .string, inputString: "\(indent)\(listItem)\t"), at: 0)
-            
+            finalTokens.insert(Token(type: .string, inputString: "\(indent)\(listItem)\(postSpace)"), at: 0)
+
         case .yaml:
             lineProperties = body
         case .previousH1:
@@ -623,7 +630,7 @@ extension SwiftyMarkdown {
                 attributes[.foregroundColor] = self.link.color
                 attributes[.font] = self.font(for: line, characterOverride: .link)
                 attributes[.link] = token.metadataStrings[linkIdx] as AnyObject
-                
+
                 if underlineLinks {
                     attributes[.underlineStyle] = self.link.underlineStyle.rawValue as AnyObject
                     attributes[.underlineColor] = self.link.underlineColor
