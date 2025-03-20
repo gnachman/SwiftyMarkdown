@@ -139,7 +139,9 @@ extension SwiftyMarkdown {
 			return body.color
 		case .referencedLink:
 			return body.color
-		}
+        case .table:
+            return table.color
+        }
 	}
 	
 }

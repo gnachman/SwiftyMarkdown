@@ -32,7 +32,7 @@ public enum CharacterStyle : CharacterStyling {
         guard let other = other as? CharacterStyle else {
             return false
         }
-        return other == self 
+        return other == self
     }
 }
 
@@ -55,6 +55,7 @@ enum MarkdownLineStyle : LineStyling {
     case h6
     case previousH1
     case previousH2
+    case table
     case body
     case blockquote
     case codeblock
@@ -72,6 +73,15 @@ enum MarkdownLineStyle : LineStyling {
             return MarkdownLineStyle.h1
         case .previousH2:
             return MarkdownLineStyle.h2
+        default :
+            return nil
+        }
+    }
+
+    func styleIfFoundStyleAffectsPreAndBackLine() -> LineStyling? {
+        switch self {
+        case .table:
+            return MarkdownLineStyle.table
         default :
             return nil
         }
@@ -98,6 +108,7 @@ enum MarkdownLineStyle : LineStyling {
         case .orderedListIndentFirstOrder: return "orderedListIndentFirstOrder"
         case .orderedListIndentSecondOrder: return "orderedListIndentSecondOrder"
         case .referencedLink: return "referencedLink"
+        case .table: return "table"
         }
     }
 }
@@ -172,6 +183,25 @@ If that is not set, then the system default will be used.
     #endif
 }
 
+@objc open class TableStyles : NSObject, FontProperties {
+    public var fontName: String?
+    
+    #if os(macOS)
+    public var color = NSColor.black
+    public var borderColor = NSColor.black
+    public var backgroundColor = NSColor.white
+    #else
+    public var color = UIColor.black
+    public var borderColor = UIColor.black
+    public var backgroundColor = UIColor.white
+    #endif
+    
+    public var fontSize: CGFloat = 16.0
+    public var fontStyle: FontStyle = .normal
+  
+    public var borderWidth : CGFloat = 1.0
+}
+
 /// A class that takes a [Markdown](https://daringfireball.net/projects/markdown/) string or file and returns an NSAttributedString with the applied styles. Supports Dynamic Type.
 @objc open class SwiftyMarkdown: NSObject {
     
@@ -189,6 +219,7 @@ If that is not set, then the system default will be used.
     static public var lineRules = [
         LineRule(token: "=", type: MarkdownLineStyle.previousH1, removeFrom: .entireLine, changeAppliesTo: .previous),
         LineRule(token: "-", type: MarkdownLineStyle.previousH2, removeFrom: .entireLine, changeAppliesTo: .previous),
+        LineRule(token: "|", type: MarkdownLineStyle.table, removeFrom: .leading, changeAppliesTo: .preAndBack),
         LineRule(token: "\t\t- ", type: MarkdownLineStyle.unorderedListIndentSecondOrder, removeFrom: .leading, shouldTrim: false),
         LineRule(token: "\t- ", type: MarkdownLineStyle.unorderedListIndentFirstOrder, removeFrom: .leading, shouldTrim: false),
         LineRule(token: "- ",type : MarkdownLineStyle.unorderedList, removeFrom: .leading),
@@ -233,7 +264,7 @@ If that is not set, then the system default will be used.
         CharacterRule(primaryTag: CharacterRuleTag(tag: "`", type: .repeating), otherTags: [], styles: [1 : CharacterStyle.code], shouldCancelRemainingRules: true, balancedTags: true),
         CharacterRule(primaryTag:CharacterRuleTag(tag: "~", type: .repeating), otherTags : [], styles: [2 : CharacterStyle.strikethrough], minTags:2 , maxTags:2),
         CharacterRule(primaryTag: CharacterRuleTag(tag: "*", type: .repeating), otherTags: [], styles: [1 : CharacterStyle.italic, 2 : CharacterStyle.bold], minTags:1 , maxTags:2),
-        CharacterRule(primaryTag: CharacterRuleTag(tag: "_", type: .repeating), otherTags: [], styles: [1 : CharacterStyle.italic, 2 : CharacterStyle.bold], minTags:1 , maxTags:2)
+        CharacterRule(primaryTag: CharacterRuleTag(tag: "_", type: .repeating), otherTags: [], styles: [1 : CharacterStyle.italic, 2 : CharacterStyle.bold], minTags:1 , maxTags:2),
     ]
     
     let lineProcessor = SwiftyLineProcessor(blockRules: SwiftyMarkdown.blockRules,
@@ -264,6 +295,9 @@ If that is not set, then the system default will be used.
     
     /// The default body styles. These are the base styles and will be used for e.g. headers if no other styles override them.
     open var body = LineStyles()
+  
+    /// The styles to apply to table found in the Markdown
+    open var table = TableStyles()
     
     /// The styles to apply to any blockquotes found in the Markdown
     open var blockquotes = LineStyles()
@@ -329,7 +363,6 @@ If that is not set, then the system default will be used.
         
         do {
             self.string = try NSString(contentsOf: url, encoding: String.Encoding.utf8.rawValue) as String
-            
         } catch {
             self.string = ""
             return nil
@@ -361,6 +394,7 @@ If that is not set, then the system default will be used.
         h5.fontSize = size
         h6.fontSize = size
         body.fontSize = size
+        table.fontSize = size
         italic.fontSize = size
         bold.fontSize = size
         code.fontSize = size
@@ -378,6 +412,7 @@ If that is not set, then the system default will be used.
         h5.color = color
         h6.color = color
         body.color = color
+        table.color = color
         italic.color = color
         bold.color = color
         code.color = color
@@ -394,6 +429,7 @@ If that is not set, then the system default will be used.
         h5.color = color
         h6.color = color
         body.color = color
+        table.color = color
         italic.color = color
         bold.color = color
         code.color = color
@@ -411,6 +447,7 @@ If that is not set, then the system default will be used.
         h5.fontName = name
         h6.fontName = name
         body.fontName = name
+        table.fontName = name
         italic.fontName = name
         bold.fontName = name
         code.fontName = name
@@ -493,7 +530,6 @@ If that is not set, then the system default will be used.
 }
 
 extension SwiftyMarkdown {
-    
     func attributedStringFor( tokens : [Token], in line : SwiftyLine ) -> NSAttributedString {
         
         var finalTokens = tokens
@@ -508,6 +544,15 @@ extension SwiftyMarkdown {
         var listItem = self.bullet
         var postSpace = " "
         switch markdownLineStyle {
+        case .table:
+            if line.line == "" {
+                let config: MarkdownTableConfiguration = .init(line.tableData, table: table)
+                let table: MarkdownTable = .init(frame: CGRect(x: 0, y: 0, width: min(100, config.tableSize.width), height: config.tableSize.height),
+                                                 configuration: config)
+                let tableAttchment: SubviewTextAttachment = SubviewTextAttachment(view: table, size: CGSize(width: table.bounds.width, height: table.bounds.height) )
+                finalAttributedString.append(NSAttributedString(attachment: tableAttchment))
+                return finalAttributedString
+            }
         case .orderedList:
             self.orderedListCount += 1
             self.orderedListIndentFirstOrderCount = 0
@@ -592,6 +637,8 @@ extension SwiftyMarkdown {
         case .previousH1:
             lineProperties = body
         case .previousH2:
+            lineProperties = body
+        case .table:
             lineProperties = body
         case .body:
             lineProperties = body

@@ -17,12 +17,14 @@ extension OSLog {
 public protocol LineStyling {
     var shouldTokeniseLine : Bool { get }
     func styleIfFoundStyleAffectsPreviousLine() -> LineStyling?
+    func styleIfFoundStyleAffectsPreAndBackLine() -> LineStyling?
 }
 
 public struct SwiftyLine : CustomStringConvertible {
-    public let line : String
+    public var line : String
     public let lineStyle : LineStyling
-    public let literal: Bool
+    public var tableData: [[String]] = []
+    public var literal: Bool
 
     public var description: String {
         return self.line + " (\(String(describing: lineStyle))"
@@ -53,6 +55,7 @@ public enum ChangeApplication {
     case current
     case previous
 	case untilClose
+    case preAndBack
 }
 
 public struct FrontMatterRule {
@@ -249,15 +252,15 @@ public class SwiftyLineProcessor {
         var swiftyLines : [SwiftyLine] = []
 		
 		
-		self.perfomanceLog.start()
-		
-		var lines = string.components(separatedBy: CharacterSet.newlines)
-		lines = self.processFrontMatter(lines)
-		
-		self.perfomanceLog.tag(with: "(Front matter completed)")
+        self.perfomanceLog.start()
+        var lines = string.components(separatedBy: CharacterSet.newlines)
+
+        lines = self.processFrontMatter(lines)
+        
+        self.perfomanceLog.tag(with: "(Front matter completed)")
 		
         var currentBlockRule: BlockRule?
-
+        var tableData:[[String]] = []
         for  heading in lines {
             
             if processEmptyStrings == nil && heading.isEmpty {
@@ -286,9 +289,9 @@ public class SwiftyLineProcessor {
                 continue
             }
 
-            guard let input = processLineLevelAttributes(String(heading)) else {
-				continue
-			}
+            guard var input = processLineLevelAttributes(String(heading)) else {
+                continue
+            }
 
             if let existentPrevious = input.lineStyle.styleIfFoundStyleAffectsPreviousLine(),
                swiftyLines.count > 0 {
@@ -297,6 +300,54 @@ public class SwiftyLineProcessor {
                     swiftyLines[idx] = SwiftyLine(line: updatedPrevious.line, lineStyle: existentPrevious)
                 }
                 continue
+            } else if input.lineStyle.styleIfFoundStyleAffectsPreAndBackLine() != nil,
+                      swiftyLines.count > 0 {
+                let updatedPrevious: SwiftyLine = swiftyLines.last!
+                let updatedPreviousLineStyle:MarkdownLineStyle = updatedPrevious.lineStyle as! MarkdownLineStyle
+                if let lineStyle: MarkdownLineStyle = updatedPrevious.lineStyle as? MarkdownLineStyle, lineStyle == .table {
+                    var contentArr:[String] = String(heading).trimmingCharacters(in: .whitespaces).components(separatedBy: "|") as [String]
+                    contentArr.removeAll(where: { $0.count == 0})
+                    var currentArr:[String] = contentArr.map({ content in
+                        return content.trimmingCharacters(in: .whitespaces)
+                    })
+                    if currentArr.filter({ content in
+                        let charSet = CharacterSet(charactersIn: "-" )
+                        return content.unicodeScalars.allSatisfy({ charSet.contains($0) }) && content.count >= 3
+                    }).count == currentArr.count {  // Check if each element contains only ---
+                        var preArr:[String] = updatedPrevious.line.trimmingCharacters(in: .whitespaces).components(separatedBy: "|") as [String]
+                        preArr.removeAll(where: {$0.count == 0})
+                        if currentArr.count >= preArr.count {
+                            tableData.append(preArr)
+                            swiftyLines.removeLast()
+                            input.line = ""
+                        }
+                    } else if updatedPreviousLineStyle != .table {  // This case is the first row of the table
+                        
+                    } else if updatedPrevious.line == "", currentArr.count > 0 {  // This case is a content item of the table
+                        let headerData: [String] = tableData.first!
+                        guard headerData.count >= currentArr.count else {continue}
+                        while headerData.count - currentArr.count > 0 {
+                            currentArr.append("")
+                        }
+                        tableData.append(currentArr)
+                        if heading == lines.last {
+                            var tableLine: SwiftyLine = swiftyLines.last!
+                            tableLine.tableData = tableData
+                            tableData = []
+                            swiftyLines[swiftyLines.count-1] = tableLine
+                            continue
+                        } else {
+                            continue
+                        }
+                    }
+                }
+            } else {
+                if tableData.count > 0 {
+                    var tableLine: SwiftyLine = swiftyLines.last!
+                    tableLine.tableData = tableData
+                    tableData = []
+                    swiftyLines[swiftyLines.count-1] = tableLine
+                }
             }
             swiftyLines.append(input)
 			

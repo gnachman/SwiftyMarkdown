@@ -21,6 +21,11 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		A66D0DCA2D8C85140011FB07 /* SubviewAttachingTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66D0DC92D8C85140011FB07 /* SubviewAttachingTextView.swift */; };
+		A66D0DCC2D8C85610011FB07 /* SubviewAttachingTextViewBehavior.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66D0DCB2D8C85610011FB07 /* SubviewAttachingTextViewBehavior.swift */; };
+		A66D0DCE2D8C86B40011FB07 /* SubviewTextAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66D0DCD2D8C86B40011FB07 /* SubviewTextAttachment.swift */; };
+		A66D0DD02D8C870D0011FB07 /* SwiftyMarkdownTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66D0DCF2D8C870D0011FB07 /* SwiftyMarkdownTable.swift */; };
+		A66D0DD22D8C88360011FB07 /* TextAttachedViewProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A66D0DD12D8C88360011FB07 /* TextAttachedViewProvider.swift */; };
 		A682275C280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A682275B280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift */; };
 		F4ACB6CB23E8A5C500EA665D /* SwiftyScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6CA23E8A5C500EA665D /* SwiftyScanner.swift */; };
 		F4ACB6CE23E8A88400EA665D /* Token.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6CD23E8A88400EA665D /* Token.swift */; };
@@ -60,6 +65,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A66D0DC92D8C85140011FB07 /* SubviewAttachingTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubviewAttachingTextView.swift; sourceTree = "<group>"; };
+		A66D0DCB2D8C85610011FB07 /* SubviewAttachingTextViewBehavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubviewAttachingTextViewBehavior.swift; sourceTree = "<group>"; };
+		A66D0DCD2D8C86B40011FB07 /* SubviewTextAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubviewTextAttachment.swift; sourceTree = "<group>"; };
+		A66D0DCF2D8C870D0011FB07 /* SwiftyMarkdownTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyMarkdownTable.swift; sourceTree = "<group>"; };
+		A66D0DD12D8C88360011FB07 /* TextAttachedViewProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextAttachedViewProvider.swift; sourceTree = "<group>"; };
 		A682275B280DEF3A005DF0B4 /* SwiftyMarkdownBlockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyMarkdownBlockTests.swift; sourceTree = "<group>"; };
 		F4ACB6CA23E8A5C500EA665D /* SwiftyScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyScanner.swift; sourceTree = "<group>"; };
 		F4ACB6CD23E8A88400EA665D /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
@@ -172,6 +182,11 @@
 		OBJ_8 /* SwiftyMarkdown */ = {
 			isa = PBXGroup;
 			children = (
+				A66D0DD12D8C88360011FB07 /* TextAttachedViewProvider.swift */,
+				A66D0DCF2D8C870D0011FB07 /* SwiftyMarkdownTable.swift */,
+				A66D0DCD2D8C86B40011FB07 /* SubviewTextAttachment.swift */,
+				A66D0DCB2D8C85610011FB07 /* SubviewAttachingTextViewBehavior.swift */,
+				A66D0DC92D8C85140011FB07 /* SubviewAttachingTextView.swift */,
 				OBJ_9 /* String+SwiftyMarkdown.swift */,
 				OBJ_10 /* SwiftyLineProcessor.swift */,
 				OBJ_11 /* SwiftyMarkdown+iOS.swift */,
@@ -280,11 +295,16 @@
 				OBJ_40 /* String+SwiftyMarkdown.swift in Sources */,
 				OBJ_41 /* SwiftyLineProcessor.swift in Sources */,
 				F4ACB6D223E8B08400EA665D /* PerfomanceLog.swift in Sources */,
+				A66D0DD22D8C88360011FB07 /* TextAttachedViewProvider.swift in Sources */,
 				F4ACB6CB23E8A5C500EA665D /* SwiftyScanner.swift in Sources */,
 				OBJ_42 /* SwiftyMarkdown+iOS.swift in Sources */,
+				A66D0DCC2D8C85610011FB07 /* SubviewAttachingTextViewBehavior.swift in Sources */,
+				A66D0DCE2D8C86B40011FB07 /* SubviewTextAttachment.swift in Sources */,
+				A66D0DD02D8C870D0011FB07 /* SwiftyMarkdownTable.swift in Sources */,
 				OBJ_43 /* SwiftyMarkdown+macOS.swift in Sources */,
 				OBJ_44 /* SwiftyMarkdown.swift in Sources */,
 				OBJ_45 /* SwiftyTokeniser.swift in Sources */,
+				A66D0DCA2D8C85140011FB07 /* SubviewAttachingTextView.swift in Sources */,
 				F4ACB6D023E8A8A500EA665D /* CharacterRule.swift in Sources */,
 				F4ACB6CE23E8A88400EA665D /* Token.swift in Sources */,
 			);
