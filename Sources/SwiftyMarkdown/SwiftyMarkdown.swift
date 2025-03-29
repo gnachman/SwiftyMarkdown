@@ -17,7 +17,7 @@ extension OSLog {
     static let swiftyMarkdownPerformance = OSLog(subsystem: subsystem, category: "Swifty Markdown Performance")
 }
 
-public enum CharacterStyle : CharacterStyling {
+public enum CharacterStyle : String, CharacterStyling {
     case none
     case bold
     case italic
@@ -617,6 +617,9 @@ extension SwiftyMarkdown {
             guard let styles = token.characterStyles as? [CharacterStyle] else {
                 continue
             }
+            attributes[.swiftyMarkdownCharacterStyles] = styles.map {
+                $0.rawValue
+            } as AnyObject
             if styles.contains(.italic) {
                 attributes[.font] = self.font(for: line, characterOverride: .italic)
                 attributes[.foregroundColor] = self.italic.color
@@ -679,4 +682,5 @@ extension SwiftyMarkdown {
 
 public extension NSAttributedString.Key {
     static let swiftyMarkdownLineStyle = NSAttributedString.Key("swiftyMarkdownLineStyle")
+    static let swiftyMarkdownCharacterStyles = NSAttributedString.Key("swiftyMarkdownCharacterStyle")
 }
