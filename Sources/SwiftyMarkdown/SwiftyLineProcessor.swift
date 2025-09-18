@@ -225,7 +225,7 @@ public class SwiftyLineProcessor {
 		// Remove the first line, which is the front matter opening tag
 		let _ = outputString.removeFirst()
 		var closeFound = false
-		while !closeFound {
+		while !closeFound && !outputString.isEmpty {
 			let nextString = outputString.removeFirst()
 			if nextString == existentRules.closeTag {
 				closeFound = true
