@@ -11,9 +11,11 @@ let package = Package(
     ],
     products: [
         .library(name: "SwiftyMarkdown", targets: ["SwiftyMarkdown"]),
+        .executable(name: "markdown2png", targets: ["markdown2png"]),
     ],
     targets: [
         .target(name: "SwiftyMarkdown"),
-		.testTarget(name: "SwiftyMarkdownTests", dependencies: ["SwiftyMarkdown"])
+		.testTarget(name: "SwiftyMarkdownTests", dependencies: ["SwiftyMarkdown"]),
+        .target(name: "markdown2png", dependencies: ["SwiftyMarkdown"], path: "Tools/markdown2png")
     ]
 )

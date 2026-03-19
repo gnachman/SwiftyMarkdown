@@ -65,6 +65,7 @@ enum MarkdownLineStyle : LineStyling {
     case orderedListIndentFirstOrder
     case orderedListIndentSecondOrder
     case referencedLink
+    case table
     
     func styleIfFoundStyleAffectsPreviousLine() -> LineStyling? {
         switch self {
@@ -98,6 +99,7 @@ enum MarkdownLineStyle : LineStyling {
         case .orderedListIndentFirstOrder: return "orderedListIndentFirstOrder"
         case .orderedListIndentSecondOrder: return "orderedListIndentSecondOrder"
         case .referencedLink: return "referencedLink"
+        case .table: return "table"
         }
     }
 }
@@ -107,6 +109,28 @@ enum MarkdownLineStyle : LineStyling {
     case bold
     case italic
     case boldItalic
+}
+
+// MARK: - Table Support
+
+public enum TableColumnAlignment {
+    case left
+    case center
+    case right
+}
+
+public struct ParsedTable {
+    public let headers: [String]
+    public let alignments: [TableColumnAlignment]
+    public let rows: [[String]]
+    public let columnCount: Int
+
+    public init(headers: [String], alignments: [TableColumnAlignment], rows: [[String]]) {
+        self.headers = headers
+        self.alignments = alignments
+        self.rows = rows
+        self.columnCount = headers.count
+    }
 }
 
 #if os(macOS)
@@ -141,9 +165,9 @@ If that is not set, then the system default will be used.
 @objc open class BasicStyles : NSObject, FontProperties {
     public var fontName : String?
     #if os(macOS)
-    public var color = NSColor.black
+    public var color = NSColor.textColor
     #else
-    public var color = UIColor.black
+    public var color = UIColor.label
     #endif
     public var fontSize : CGFloat = 0.0
     public var fontStyle : FontStyle = .normal
@@ -152,9 +176,9 @@ If that is not set, then the system default will be used.
 @objc open class LineStyles : NSObject, FontProperties, LineProperties {
     public var fontName : String?
     #if os(macOS)
-    public var color = NSColor.black
+    public var color = NSColor.textColor
     #else
-    public var color = UIColor.black
+    public var color = UIColor.label
     #endif
     public var fontSize : CGFloat = 0.0
     public var fontStyle : FontStyle = .normal
@@ -171,6 +195,34 @@ If that is not set, then the system default will be used.
     public lazy var underlineColor = self.color
     #endif
 }
+
+#if os(macOS)
+@objc open class TableStyles : NSObject {
+    public var borderWidth: CGFloat = 0.5
+    public var borderColor: NSColor = {
+        if #available(macOS 10.14, *) {
+            return .separatorColor
+        } else {
+            return .gridColor
+        }
+    }()
+    public var cellPadding: CGFloat = 6.0
+}
+
+@objc open class TableCellStyles : LineStyles {
+    // Inherits fontName, fontSize, color, fontStyle, alignment, lineSpacing, paragraphSpacing
+}
+#else
+@objc open class TableStyles : NSObject {
+    public var borderWidth: CGFloat = 0.5
+    public var borderColor: UIColor = .separator
+    public var cellPadding: CGFloat = 6.0
+}
+
+@objc open class TableCellStyles : LineStyles {
+    // Inherits fontName, fontSize, color, fontStyle, alignment, lineSpacing, paragraphSpacing
+}
+#endif
 
 /// A class that takes a [Markdown](https://daringfireball.net/projects/markdown/) string or file and returns an NSAttributedString with the applied styles. Supports Dynamic Type.
 @objc open class SwiftyMarkdown: NSObject {
@@ -239,7 +291,8 @@ If that is not set, then the system default will be used.
     let lineProcessor = SwiftyLineProcessor(blockRules: SwiftyMarkdown.blockRules,
                                             rules: SwiftyMarkdown.lineRules,
                                             defaultRule: MarkdownLineStyle.body,
-                                            frontMatterRules: SwiftyMarkdown.frontMatterRules)
+                                            frontMatterRules: SwiftyMarkdown.frontMatterRules,
+                                            tableLineStyle: MarkdownLineStyle.table)
     let tokeniser = SwiftyTokeniser(with: SwiftyMarkdown.characterRules)
 
     open var tabStopInterval = CGFloat(10)
@@ -281,7 +334,20 @@ If that is not set, then the system default will be used.
     open var code = BasicStyles()
 
     open var strikethrough = BasicStyles()
-    
+
+    /// The styles to apply to tables
+    open var tableStyle = TableStyles()
+
+    /// The styles to apply to table header cells (bold by default)
+    open var tableHeader: TableCellStyles = {
+        let styles = TableCellStyles()
+        styles.fontStyle = .bold
+        return styles
+    }()
+
+    /// The styles to apply to table body cells
+    open var tableCell = TableCellStyles()
+
     public var bullet : String = "・"
     
     public var underlineLinks : Bool = false
@@ -470,6 +536,13 @@ If that is not set, then the system default will be used.
             if idx > 0 {
                 attributedString.append(NSAttributedString(string: "\n"))
             }
+
+            // Check if this line contains table data
+            if let tableData = line.tableData {
+                attributedString.append(attributedStringForTable(tableData))
+                continue
+            }
+
             let finalTokens: [Token]
             if line.literal {
                 finalTokens = [Token(type: .string,
@@ -480,9 +553,9 @@ If that is not set, then the system default will be used.
             }
             self.previouslyFoundTokens.append(contentsOf: finalTokens)
             self.perfomanceLog.tag(with: "(tokenising complete for line \(idx)")
-            
+
             attributedString.append(attributedStringFor(tokens: finalTokens, in: line))
-            
+
         }
         
         self.perfomanceLog.end()
@@ -596,6 +669,9 @@ extension SwiftyMarkdown {
         case .body:
             lineProperties = body
         case .referencedLink:
+            lineProperties = body
+        case .table:
+            // Tables are handled separately, this shouldn't be reached
             lineProperties = body
         }
         

@@ -129,11 +129,13 @@ extension SwiftyMarkdown {
 			font = UIFont.preferredFont(forTextStyle: textStyle)
 		}
 		
-		if globalItalic, let italicDescriptor = font.fontDescriptor.withSymbolicTraits(.traitItalic) {
-			font = UIFont(descriptor: italicDescriptor, size: fontSize ?? 0)
-		}
-		if globalBold, let boldDescriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) {
-			font = UIFont(descriptor: boldDescriptor, size: fontSize ?? 0)
+		if globalItalic || globalBold {
+			var traits: UIFontDescriptor.SymbolicTraits = []
+			if globalItalic { traits.insert(.traitItalic) }
+			if globalBold { traits.insert(.traitBold) }
+			if let styledDescriptor = font.fontDescriptor.withSymbolicTraits(traits) {
+				font = UIFont(descriptor: styledDescriptor, size: fontSize ?? 0)
+			}
 		}
 		
 		return font
@@ -167,8 +169,103 @@ extension SwiftyMarkdown {
 			return body.color
 		case .referencedLink:
 			return link.color
+		case .table:
+			return tableCell.color
 		}
 	}
-	
+
+    // MARK: - Table Rendering (iOS Fallback)
+
+    func attributedStringForTable(_ table: ParsedTable) -> NSAttributedString {
+        // iOS doesn't have NSTextTable, so we use monospace formatting for alignment
+
+        let result = NSMutableAttributedString()
+
+        // Calculate column widths
+        var columnWidths = [Int](repeating: 0, count: table.columnCount)
+
+        for (index, header) in table.headers.enumerated() {
+            columnWidths[index] = max(columnWidths[index], header.count)
+        }
+        for row in table.rows {
+            for (index, cell) in row.enumerated() where index < columnWidths.count {
+                columnWidths[index] = max(columnWidths[index], cell.count)
+            }
+        }
+
+        // Get monospace font for consistent column widths
+        let fontSize = tableCell.fontSize > 0 ? tableCell.fontSize : body.fontSize > 0 ? body.fontSize : UIFont.systemFontSize
+        let monoFont = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        let monoBoldFont = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+
+        // Render header row
+        let headerLine = formatTableRow(table.headers, widths: columnWidths, alignments: table.alignments)
+        let headerAttributes: [NSAttributedString.Key: Any] = [
+            .font: monoBoldFont,
+            .foregroundColor: tableHeader.color
+        ]
+        result.append(NSAttributedString(string: headerLine + "\n", attributes: headerAttributes))
+
+        // Render separator
+        let separatorLine = formatSeparatorRow(widths: columnWidths)
+        let separatorAttributes: [NSAttributedString.Key: Any] = [
+            .font: monoFont,
+            .foregroundColor: tableCell.color
+        ]
+        result.append(NSAttributedString(string: separatorLine + "\n", attributes: separatorAttributes))
+
+        // Render body rows
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: monoFont,
+            .foregroundColor: tableCell.color
+        ]
+        for row in table.rows {
+            let rowLine = formatTableRow(row, widths: columnWidths, alignments: table.alignments)
+            result.append(NSAttributedString(string: rowLine + "\n", attributes: bodyAttributes))
+        }
+
+        return result
+    }
+
+    private func formatTableRow(_ cells: [String], widths: [Int], alignments: [TableColumnAlignment]) -> String {
+        var parts: [String] = []
+
+        for (index, cell) in cells.enumerated() {
+            let width = index < widths.count ? widths[index] : cell.count
+            let alignment = index < alignments.count ? alignments[index] : .left
+            let padded = padCell(cell, to: width, alignment: alignment)
+            parts.append(padded)
+        }
+
+        // Fill any missing columns with spaces
+        for index in cells.count..<widths.count {
+            let width = widths[index]
+            parts.append(String(repeating: " ", count: width))
+        }
+
+        return "| " + parts.joined(separator: " | ") + " |"
+    }
+
+    private func formatSeparatorRow(widths: [Int]) -> String {
+        let parts = widths.map { String(repeating: "-", count: $0) }
+        return "|-" + parts.joined(separator: "-|-") + "-|"
+    }
+
+    private func padCell(_ content: String, to width: Int, alignment: TableColumnAlignment) -> String {
+        let padding = width - content.count
+        guard padding > 0 else { return content }
+
+        switch alignment {
+        case .left:
+            return content + String(repeating: " ", count: padding)
+        case .right:
+            return String(repeating: " ", count: padding) + content
+        case .center:
+            let leftPad = padding / 2
+            let rightPad = padding - leftPad
+            return String(repeating: " ", count: leftPad) + content + String(repeating: " ", count: rightPad)
+        }
+    }
+
 }
 #endif

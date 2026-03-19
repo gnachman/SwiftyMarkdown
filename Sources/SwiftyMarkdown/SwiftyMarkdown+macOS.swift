@@ -99,13 +99,12 @@ extension SwiftyMarkdown {
 			font = NSFont.systemFont(ofSize: finalSize)
 		}
 		
-		if globalItalic {
-			let italicDescriptor = font.fontDescriptor.withSymbolicTraits(.italic)
-			font = NSFont(descriptor: italicDescriptor, size: 0) ?? font
-		}
-		if globalBold {
-			let boldDescriptor = font.fontDescriptor.withSymbolicTraits(.bold)
-			font = NSFont(descriptor: boldDescriptor, size: 0) ?? font
+		if globalItalic || globalBold {
+			var traits: NSFontDescriptor.SymbolicTraits = []
+			if globalItalic { traits.insert(.italic) }
+			if globalBold { traits.insert(.bold) }
+			let styledDescriptor = font.fontDescriptor.withSymbolicTraits(traits)
+			font = NSFont(descriptor: styledDescriptor, size: 0) ?? font
 		}
 		
 		return font
@@ -139,8 +138,187 @@ extension SwiftyMarkdown {
 			return body.color
 		case .referencedLink:
 			return body.color
+		case .table:
+			return tableCell.color
 		}
 	}
-	
+
+    // MARK: - Table Rendering
+
+    func attributedStringForTable(_ table: ParsedTable) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+
+        let nsTable = NSTextTable()
+        nsTable.numberOfColumns = table.columnCount
+        nsTable.collapsesBorders = true
+
+        // Render header row
+        for (colIndex, header) in table.headers.enumerated() {
+            let cellString = attributedStringForTableCell(
+                content: header,
+                table: nsTable,
+                row: 0,
+                column: colIndex,
+                alignment: table.alignments[safe: colIndex] ?? .left,
+                isHeader: true
+            )
+            result.append(cellString)
+        }
+
+        // Render body rows
+        for (rowIndex, row) in table.rows.enumerated() {
+            for (colIndex, cell) in row.enumerated() {
+                let cellString = attributedStringForTableCell(
+                    content: cell,
+                    table: nsTable,
+                    row: rowIndex + 1,  // +1 because row 0 is headers
+                    column: colIndex,
+                    alignment: table.alignments[safe: colIndex] ?? .left,
+                    isHeader: false
+                )
+                result.append(cellString)
+            }
+        }
+
+        return result
+    }
+
+    private func attributedStringForTableCell(
+        content: String,
+        table: NSTextTable,
+        row: Int,
+        column: Int,
+        alignment: TableColumnAlignment,
+        isHeader: Bool
+    ) -> NSAttributedString {
+        let block = NSTextTableBlock(
+            table: table,
+            startingRow: row,
+            rowSpan: 1,
+            startingColumn: column,
+            columnSpan: 1
+        )
+
+        // Set border
+        block.setWidth(tableStyle.borderWidth, type: .absoluteValueType, for: .border)
+        block.setBorderColor(tableStyle.borderColor)
+
+        // Set padding
+        block.setWidth(tableStyle.cellPadding, type: .absoluteValueType, for: .padding)
+
+        // Create paragraph style with the text block
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.textBlocks = [block]
+
+        // Set alignment
+        switch alignment {
+        case .left:
+            paragraphStyle.alignment = .left
+        case .center:
+            paragraphStyle.alignment = .center
+        case .right:
+            paragraphStyle.alignment = .right
+        }
+
+        // Get font and color based on whether this is a header or body cell
+        let cellStyles: TableCellStyles = isHeader ? tableHeader : tableCell
+
+        var font: NSFont
+        let fontSize = cellStyles.fontSize > 0 ? cellStyles.fontSize : body.fontSize > 0 ? body.fontSize : NSFont.systemFontSize
+
+        if let fontName = cellStyles.fontName ?? body.fontName,
+           let customFont = NSFont(name: fontName, size: fontSize) {
+            font = customFont
+        } else {
+            font = NSFont.systemFont(ofSize: fontSize)
+        }
+
+        // Apply font style
+        switch cellStyles.fontStyle {
+        case .bold:
+            let boldDescriptor = font.fontDescriptor.withSymbolicTraits(.bold)
+            font = NSFont(descriptor: boldDescriptor, size: 0) ?? font
+        case .italic:
+            let italicDescriptor = font.fontDescriptor.withSymbolicTraits(.italic)
+            font = NSFont(descriptor: italicDescriptor, size: 0) ?? font
+        case .boldItalic:
+            var traits = font.fontDescriptor.symbolicTraits
+            traits.insert(.bold)
+            traits.insert(.italic)
+            let descriptor = font.fontDescriptor.withSymbolicTraits(traits)
+            font = NSFont(descriptor: descriptor, size: 0) ?? font
+        case .normal:
+            break
+        }
+
+        let color = cellStyles.color
+
+        // Tokenize cell content for inline formatting
+        let tokens = tokeniser.process(content)
+
+        // Build the attributed string for this cell
+        let cellResult = NSMutableAttributedString()
+
+        for token in tokens {
+            var attributes: [NSAttributedString.Key: Any] = [
+                .paragraphStyle: paragraphStyle,
+                .font: font,
+                .foregroundColor: color
+            ]
+
+            if let styles = token.characterStyles as? [CharacterStyle] {
+                let hasBold = styles.contains(.bold)
+                let hasItalic = styles.contains(.italic)
+                if hasBold || hasItalic {
+                    var traits: NSFontDescriptor.SymbolicTraits = []
+                    if hasBold { traits.insert(.bold) }
+                    if hasItalic { traits.insert(.italic) }
+                    let styledDescriptor = font.fontDescriptor.withSymbolicTraits(traits)
+                    attributes[.font] = NSFont(descriptor: styledDescriptor, size: 0) ?? font
+                    // Use italic color if italic, otherwise bold color
+                    attributes[.foregroundColor] = hasItalic ? italic.color : bold.color
+                }
+                if styles.contains(.code) {
+                    if let codeFontName = code.fontName,
+                       let codeFont = NSFont(name: codeFontName, size: code.fontSize > 0 ? code.fontSize : fontSize) {
+                        attributes[.font] = codeFont
+                    }
+                    attributes[.foregroundColor] = code.color
+                }
+                if let linkIdx = styles.firstIndex(of: .link), linkIdx < token.metadataStrings.count {
+                    attributes[.foregroundColor] = link.color
+                    attributes[.link] = token.metadataStrings[linkIdx]
+                    if underlineLinks {
+                        attributes[.underlineStyle] = link.underlineStyle.rawValue
+                        attributes[.underlineColor] = link.underlineColor
+                    }
+                }
+                if styles.contains(.strikethrough) {
+                    attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                    attributes[.foregroundColor] = strikethrough.color
+                }
+            }
+
+            cellResult.append(NSAttributedString(string: token.outputString, attributes: attributes))
+        }
+
+        // Add newline at end of cell (required for NSTextTable)
+        let newlineAttributes: [NSAttributedString.Key: Any] = [
+            .paragraphStyle: paragraphStyle,
+            .font: font
+        ]
+        cellResult.append(NSAttributedString(string: "\n", attributes: newlineAttributes))
+
+        return cellResult
+    }
+
 }
+
+// Helper extension for safe array access
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
+}
+
 #endif
