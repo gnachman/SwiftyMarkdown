@@ -17,6 +17,14 @@ extension OSLog {
 public protocol LineStyling {
     var shouldTokeniseLine : Bool { get }
     func styleIfFoundStyleAffectsPreviousLine() -> LineStyling?
+    /// When this style would normally modify the previous line (setext-style underline) but the
+    /// preceding raw input line was blank, return the style to apply to the current line instead.
+    /// Returning nil leaves behavior unchanged.
+    func styleWhenPreviousLineIsBlank() -> LineStyling?
+}
+
+public extension LineStyling {
+    func styleWhenPreviousLineIsBlank() -> LineStyling? { return nil }
 }
 
 public struct SwiftyLine : CustomStringConvertible {
@@ -408,6 +416,7 @@ public class SwiftyLineProcessor {
 		self.perfomanceLog.tag(with: "(Front matter completed)")
 
         var currentBlockRule: BlockRule?
+        var previousRawLineWasBlank = true
         tableState = .idle
 
         /// Helper to emit a completed table
@@ -423,11 +432,13 @@ public class SwiftyLineProcessor {
             case .idle:
                 if isTableRow(heading) {
                     tableState = .potentialTable(headerLine: heading)
+                    previousRawLineWasBlank = false
                     continue
                 }
             case .potentialTable(let headerLine):
                 if isTableSeparator(heading) {
                     tableState = .inTable(header: headerLine, separator: heading, bodyRows: [])
+                    previousRawLineWasBlank = false
                     continue
                 } else {
                     // Not a valid table, process the header line normally
@@ -438,6 +449,7 @@ public class SwiftyLineProcessor {
                     // Check if current line could start a new table
                     if isTableRow(heading) {
                         tableState = .potentialTable(headerLine: heading)
+                        previousRawLineWasBlank = false
                         continue
                     }
                     // Otherwise fall through to process current line normally
@@ -446,6 +458,7 @@ public class SwiftyLineProcessor {
                 if isTableRow(heading) && !isTableSeparator(heading) {
                     bodyRows.append(heading)
                     tableState = .inTable(header: header, separator: separator, bodyRows: bodyRows)
+                    previousRawLineWasBlank = false
                     continue
                 } else {
                     // Table ended, emit it
@@ -454,19 +467,24 @@ public class SwiftyLineProcessor {
                     // Check if current line starts a new table
                     if isTableRow(heading) {
                         tableState = .potentialTable(headerLine: heading)
+                        previousRawLineWasBlank = false
                         continue
                     }
                     // Otherwise fall through to process current line normally
                 }
             }
 
-            if processEmptyStrings == nil && heading.isEmpty {
-                continue
+            if heading.isEmpty {
+                previousRawLineWasBlank = true
+                if processEmptyStrings == nil {
+                    continue
+                }
             }
 
             if let update = processBlockTokens(currentBlockRule, line: String(heading)) {
                 if currentBlockRule == nil {
                     currentBlockRule = update
+                    previousRawLineWasBlank = false
                     continue
                 }
             } else {
@@ -475,6 +493,7 @@ public class SwiftyLineProcessor {
                 }
                 if currentBlockRule != nil {
                     // Skip over end token
+                    previousRawLineWasBlank = false
                     continue
                 }
             }
@@ -483,6 +502,7 @@ public class SwiftyLineProcessor {
                 swiftyLines.append(SwiftyLine(line: String(heading),
                                               lineStyle: blockRule.type,
                                               literal: true))
+                previousRawLineWasBlank = false
                 continue
             }
 
@@ -491,14 +511,31 @@ public class SwiftyLineProcessor {
 			}
 
             if let existentPrevious = input.lineStyle.styleIfFoundStyleAffectsPreviousLine(),
-               swiftyLines.count > 0 {
+               swiftyLines.count > 0,
+               !previousRawLineWasBlank {
                 if let idx = swiftyLines.firstIndex(of: swiftyLines.last!) {
                     let updatedPrevious = swiftyLines.last!
                     swiftyLines[idx] = SwiftyLine(line: updatedPrevious.line, lineStyle: existentPrevious)
                 }
+                previousRawLineWasBlank = false
                 continue
             }
+
+            // Blank line above turns a setext-style underline into a thematic break (for `---`)
+            // or a plain paragraph (for `===`), per CommonMark.
+            if previousRawLineWasBlank,
+               let fallback = input.lineStyle.styleWhenPreviousLineIsBlank() {
+                swiftyLines.append(SwiftyLine(line: String(heading), lineStyle: fallback))
+                previousRawLineWasBlank = false
+                continue
+            }
+
             swiftyLines.append(input)
+            // A non-empty source line ends the blank-line streak; a fall-through empty line
+            // (when processEmptyStrings is set) preserves it so a following `---` is still an HR.
+            if !heading.isEmpty {
+                previousRawLineWasBlank = false
+            }
 
 			self.perfomanceLog.tag(with: "(line completed: \(heading)")
         }

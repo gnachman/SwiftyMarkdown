@@ -171,6 +171,8 @@ extension SwiftyMarkdown {
 			return link.color
 		case .table:
 			return tableCell.color
+		case .horizontalRule:
+			return body.color
 		}
 	}
 

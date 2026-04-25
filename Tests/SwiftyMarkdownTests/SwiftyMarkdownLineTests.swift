@@ -113,7 +113,80 @@ class SwiftyMarkdownTests: XCTestCase {
 		md = SwiftyMarkdown(string: h2StringWithCode.input)
 		XCTAssertEqual(md.attributedString().string, h2StringWithCode.expectedOutput)
 	}
-	
+
+	func testThatThematicBreaksAreHandledCorrectly() {
+		let rule = String(repeating: "\u{2500}", count: 30)
+
+		// `---` after a blank line is a thematic break, not a setext H2 underline.
+		// Surrounding source-blank lines render as empty body lines (existing behavior).
+		let blankAbove = StringTest(input: "Paragraph\n\n---\n\nNext paragraph",
+		                            expectedOutput: "Paragraph\n\n\(rule)\n\nNext paragraph")
+		var md = SwiftyMarkdown(string: blankAbove.input)
+		XCTAssertEqual(md.attributedString().string, blankAbove.expectedOutput)
+
+		// `---` immediately after the doc's first line (with a blank above the marker) is
+		// still a thematic break. (Note: a doc that *starts* with `---` triggers the
+		// front-matter rule, which is a separate concern.)
+		let earlyRule = StringTest(input: "Intro line\n\n---\n\nBody",
+		                           expectedOutput: "Intro line\n\n\(rule)\n\nBody")
+		md = SwiftyMarkdown(string: earlyRule.input)
+		XCTAssertEqual(md.attributedString().string, earlyRule.expectedOutput)
+
+		// Multiple `---` separators must not cascade-convert preceding lines into H2;
+		// every section's text must survive end-to-end.
+		let multi = StringTest(
+			input: "First section\n\n---\n\nSecond section\n\n---\n\nThird section",
+			expectedOutput: "First section\n\n\(rule)\n\nSecond section\n\n\(rule)\n\nThird section")
+		md = SwiftyMarkdown(string: multi.input)
+		XCTAssertEqual(md.attributedString().string, multi.expectedOutput)
+
+		// `===` after a blank line is paragraph text, not a setext H1 underline.
+		let equalsParagraph = StringTest(input: "Paragraph\n\n===\n\nNext paragraph",
+		                                 expectedOutput: "Paragraph\n\n===\n\nNext paragraph")
+		md = SwiftyMarkdown(string: equalsParagraph.input)
+		XCTAssertEqual(md.attributedString().string, equalsParagraph.expectedOutput)
+
+		// Setext underlines (no blank line between heading and underline) still work.
+		let setext = StringTest(input: "Heading\n---\nBody",
+		                        expectedOutput: "Heading\nBody")
+		md = SwiftyMarkdown(string: setext.input)
+		XCTAssertEqual(md.attributedString().string, setext.expectedOutput)
+	}
+
+	func testThatThematicBreakDoesNotMutatePreviousHeading() {
+		let rule = String(repeating: "\u{2500}", count: 30)
+		let input = "## Section A\n\nProse A\n\n---\n\n## Section B\n\nProse B"
+		let md = SwiftyMarkdown(string: input)
+		let attr = md.attributedString()
+		let full = attr.string as NSString
+
+		// Verify the first heading stayed an H2 (not mutated to body) and the rule line
+		// was emitted with the horizontalRule line style. This is the regression we care
+		// about: previously `---` would convert "Prose A" into an H2 and damage the rest
+		// of the document.
+		let headingRange = full.range(of: "Section A")
+		XCTAssertTrue(headingRange.location != NSNotFound)
+		let headingStyle = attr.attribute(.swiftyMarkdownLineStyle, at: headingRange.location, effectiveRange: nil) as? String
+		XCTAssertEqual(headingStyle, "h2")
+
+		let proseRange = full.range(of: "Prose A")
+		XCTAssertTrue(proseRange.location != NSNotFound)
+		let proseStyle = attr.attribute(.swiftyMarkdownLineStyle, at: proseRange.location, effectiveRange: nil) as? String
+		XCTAssertEqual(proseStyle, "body")
+
+		let ruleRange = full.range(of: rule)
+		XCTAssertTrue(ruleRange.location != NSNotFound)
+		let ruleStyle = attr.attribute(.swiftyMarkdownLineStyle, at: ruleRange.location, effectiveRange: nil) as? String
+		XCTAssertEqual(ruleStyle, "horizontalRule")
+
+		// Section B's heading must survive end-to-end (the original bug "cut off"
+		// rendering after the first `---`).
+		let sectionBRange = full.range(of: "Section B")
+		XCTAssertTrue(sectionBRange.location != NSNotFound)
+		let sectionBStyle = attr.attribute(.swiftyMarkdownLineStyle, at: sectionBRange.location, effectiveRange: nil) as? String
+		XCTAssertEqual(sectionBStyle, "h2")
+	}
+
 	func testThatUnorderedListsAreHandledCorrectly() {
 		let dashBullets = StringTest(input: "An Unordered List\n- Item 1\n\t- Indented\n- Item 2", expectedOutput: "An Unordered List\n-\tItem 1\n\t-\tIndented\n-\tItem 2")
 		var md = SwiftyMarkdown(string: dashBullets.input)

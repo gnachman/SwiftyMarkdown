@@ -66,7 +66,8 @@ enum MarkdownLineStyle : LineStyling {
     case orderedListIndentSecondOrder
     case referencedLink
     case table
-    
+    case horizontalRule
+
     func styleIfFoundStyleAffectsPreviousLine() -> LineStyling? {
         switch self {
         case .previousH1:
@@ -74,6 +75,17 @@ enum MarkdownLineStyle : LineStyling {
         case .previousH2:
             return MarkdownLineStyle.h2
         default :
+            return nil
+        }
+    }
+
+    func styleWhenPreviousLineIsBlank() -> LineStyling? {
+        switch self {
+        case .previousH2:
+            return MarkdownLineStyle.horizontalRule
+        case .previousH1:
+            return MarkdownLineStyle.body
+        default:
             return nil
         }
     }
@@ -100,6 +112,7 @@ enum MarkdownLineStyle : LineStyling {
         case .orderedListIndentSecondOrder: return "orderedListIndentSecondOrder"
         case .referencedLink: return "referencedLink"
         case .table: return "table"
+        case .horizontalRule: return "horizontalRule"
         }
     }
 }
@@ -544,7 +557,10 @@ If that is not set, then the system default will be used.
             }
 
             let finalTokens: [Token]
-            if line.literal {
+            if (line.lineStyle as? MarkdownLineStyle) == .horizontalRule {
+                finalTokens = [Token(type: .string,
+                                     inputString: String(repeating: "\u{2500}", count: 30))]
+            } else if line.literal {
                 finalTokens = [Token(type: .string,
                                      inputString: line.line,
                                      characterStyles: [CharacterStyle.code])]
@@ -672,6 +688,8 @@ extension SwiftyMarkdown {
             lineProperties = body
         case .table:
             // Tables are handled separately, this shouldn't be reached
+            lineProperties = body
+        case .horizontalRule:
             lineProperties = body
         }
         

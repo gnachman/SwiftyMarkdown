@@ -140,6 +140,8 @@ extension SwiftyMarkdown {
 			return body.color
 		case .table:
 			return tableCell.color
+		case .horizontalRule:
+			return body.color
 		}
 	}
 
