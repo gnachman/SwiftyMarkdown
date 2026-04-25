@@ -603,21 +603,23 @@ extension SwiftyMarkdown {
             self.orderedListIndentSecondOrderCount = 0
             listItem = "\(self.orderedListCount)."
             postSpace = "\t"
+        case .unorderedList:
+            postSpace = "\t"
         case .orderedListIndentFirstOrder, .unorderedListIndentFirstOrder:
             self.orderedListIndentFirstOrderCount += 1
             self.orderedListIndentSecondOrderCount = 0
+            postSpace = "\t"
             if markdownLineStyle == .orderedListIndentFirstOrder {
                 listItem = "\(self.orderedListIndentFirstOrderCount)."
-                postSpace = "\t"
             }
-            
+
         case .orderedListIndentSecondOrder, .unorderedListIndentSecondOrder:
             self.orderedListIndentSecondOrderCount += 1
+            postSpace = "\t"
             if markdownLineStyle == .orderedListIndentSecondOrder {
                 listItem = "\(self.orderedListIndentSecondOrderCount)."
-                postSpace = "\t"
             }
-            
+
         default:
             self.orderedListCount = 0
             self.orderedListIndentFirstOrderCount = 0
