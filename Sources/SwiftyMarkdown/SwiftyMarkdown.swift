@@ -237,6 +237,15 @@ If that is not set, then the system default will be used.
 }
 #endif
 
+/// How a soft line break (a newline inside a paragraph) is rendered.
+public enum SoftBreakStyle {
+    /// As a line break (U+2028) within the paragraph. Suits text whose author meant
+    /// each line to stand alone, such as chat messages.
+    case lineBreak
+    /// As a space, so hard-wrapped text reflows. Suits Markdown files.
+    case space
+}
+
 /// A class that takes a [Markdown](https://daringfireball.net/projects/markdown/) string or file and returns an NSAttributedString with the applied styles. Supports Dynamic Type.
 @objc open class SwiftyMarkdown: NSObject {
     
@@ -362,6 +371,10 @@ If that is not set, then the system default will be used.
     open var tableCell = TableCellStyles()
 
     public var bullet : String = "・"
+
+    /// How a newline inside a paragraph is rendered. Hard breaks (two trailing spaces
+    /// or a trailing backslash) are always line breaks.
+    public var softBreakStyle: SoftBreakStyle = .lineBreak
     
     public var underlineLinks : Bool = false
     
@@ -779,4 +792,9 @@ extension SwiftyMarkdown {
 public extension NSAttributedString.Key {
     static let swiftyMarkdownLineStyle = NSAttributedString.Key("swiftyMarkdownLineStyle")
     static let swiftyMarkdownCharacterStyles = NSAttributedString.Key("swiftyMarkdownCharacterStyle")
+    /// On every paragraph inside a list item: the item's nesting level, 0 for the outermost list.
+    /// A paragraph that continues an item (rather than starting it) has this but no marker.
+    static let swiftyMarkdownListLevel = NSAttributedString.Key("swiftyMarkdownListLevel")
+    /// On every paragraph inside a blockquote: how many quotes enclose it.
+    static let swiftyMarkdownQuoteDepth = NSAttributedString.Key("swiftyMarkdownQuoteDepth")
 }
