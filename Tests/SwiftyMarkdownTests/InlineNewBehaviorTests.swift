@@ -3,13 +3,22 @@
 //  SwiftyMarkdownTests
 //
 //  Inline GitHub Flavored Markdown, as language models write it, that the
-//  current tokenizer gets wrong. These fail until it's fixed.
+//  current tokenizer gets wrong. They're expected to fail until it's fixed.
 //
 
 import XCTest
 @testable import SwiftyMarkdown
 
 final class InlineNewBehaviorTests: XCTestCase {
+
+    // Every test here describes behavior the current tokenizer lacks. The
+    // expectation is strict, so a test that starts passing fails and should
+    // move to a suite of behavior that holds.
+    override func invokeTest() {
+        XCTExpectFailure("Not implemented yet") {
+            super.invokeTest()
+        }
+    }
 
     // MARK: Emphasis
 

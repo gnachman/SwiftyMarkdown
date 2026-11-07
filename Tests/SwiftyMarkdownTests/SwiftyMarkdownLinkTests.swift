@@ -619,7 +619,7 @@ class SwiftyMarkdownLinkTests: SwiftyMarkdownCharacterTests {
 	}
 	
 	func testForReferencedImages() {
-		challenge = TokenTest(input: "A ![referenced image][image]\n[image]: imageName", output: "A ", tokens: [
+		challenge = TokenTest(input: "A ![referenced image][image]\n\n[image]: imageName", output: "A ", tokens: [
 			Token(type: .string, inputString: "A ", characterStyles: []),
 			Token(type: .string, inputString: "referenced image", characterStyles: [CharacterStyle.image])
 		])
@@ -641,7 +641,7 @@ class SwiftyMarkdownLinkTests: SwiftyMarkdownCharacterTests {
 	}
 	
 	func testForReferencedLinks() {
-		challenge = TokenTest(input: "A [referenced link][link]\n[link]: https://www.neverendingvoyage.com/", output: "A referenced link", tokens: [
+		challenge = TokenTest(input: "A [referenced link][link]\n\n[link]: https://www.neverendingvoyage.com/", output: "A referenced link", tokens: [
 			Token(type: .string, inputString: "A ", characterStyles: []),
 			Token(type: .string, inputString: "referenced link", characterStyles: [CharacterStyle.link])
 		])
@@ -662,7 +662,7 @@ class SwiftyMarkdownLinkTests: SwiftyMarkdownCharacterTests {
 			XCTFail("Incorrect link count. Expecting 1, found \(results.links.count)")
 		}
 		
-		challenge = TokenTest(input: "A [referenced link][link]\n  [link]: https://www.neverendingvoyage.com/", output: "A referenced link", tokens: [
+		challenge = TokenTest(input: "A [referenced link][link]\n\n  [link]: https://www.neverendingvoyage.com/", output: "A referenced link", tokens: [
 			Token(type: .string, inputString: "A ", characterStyles: []),
 			Token(type: .string, inputString: "referenced link", characterStyles: [CharacterStyle.link])
 		])
@@ -682,7 +682,7 @@ class SwiftyMarkdownLinkTests: SwiftyMarkdownCharacterTests {
 			XCTFail("Incorrect link count. Expecting 1, found \(results.links.count)")
 		}
 		
-		challenge = TokenTest(input: "An *\\*italic\\** [referenced link][a]\n[a]: link", output: "An *italic* referenced link", tokens: [
+		challenge = TokenTest(input: "An *\\*italic\\** [referenced link][a]\n\n[a]: link", output: "An *italic* referenced link", tokens: [
 			Token(type: .string, inputString: "An ", characterStyles: []),
 			Token(type: .string, inputString: "*italic*", characterStyles: [CharacterStyle.italic]),
 			Token(type: .string, inputString: " ", characterStyles: []),
@@ -707,7 +707,7 @@ class SwiftyMarkdownLinkTests: SwiftyMarkdownCharacterTests {
 	}
 	
 	func testForMixedLinkStyles() {
-		challenge = TokenTest(input: "A [referenced link][link] and a [regular link](http://voyagetravelapps.com/)\n[link]: https://www.neverendingvoyage.com/", output: "A referenced link and a regular link", tokens: [
+		challenge = TokenTest(input: "A [referenced link][link] and a [regular link](http://voyagetravelapps.com/)\n\n[link]: https://www.neverendingvoyage.com/", output: "A referenced link and a regular link", tokens: [
 			Token(type: .string, inputString: "A ", characterStyles: []),
 			Token(type: .string, inputString: "referenced link", characterStyles: [CharacterStyle.link]),
 			Token(type: .string, inputString: " and a ", characterStyles: []),

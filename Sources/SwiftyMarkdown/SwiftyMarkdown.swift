@@ -37,15 +37,6 @@ public enum CharacterStyle : String, CharacterStyling {
 }
 
 enum MarkdownLineStyle : LineStyling {
-    var shouldTokeniseLine: Bool {
-        switch self {
-        case .codeblock:
-            return false
-        default:
-            return true
-        }
-        
-    }
     case yaml
     case h1
     case h2
@@ -68,25 +59,16 @@ enum MarkdownLineStyle : LineStyling {
     case table
     case horizontalRule
 
-    func styleIfFoundStyleAffectsPreviousLine() -> LineStyling? {
-        switch self {
-        case .previousH1:
-            return MarkdownLineStyle.h1
-        case .previousH2:
-            return MarkdownLineStyle.h2
-        default :
-            return nil
-        }
-    }
-
-    func styleWhenPreviousLineIsBlank() -> LineStyling? {
-        switch self {
-        case .previousH2:
-            return MarkdownLineStyle.horizontalRule
-        case .previousH1:
-            return MarkdownLineStyle.body
-        default:
-            return nil
+    /// The style for the first paragraph of a list item. There are three levels
+    /// of style; deeper items use the last.
+    static func listItem(ordered: Bool, level: Int) -> MarkdownLineStyle {
+        switch (ordered, level) {
+        case (true, 0): return .orderedList
+        case (true, 1): return .orderedListIndentFirstOrder
+        case (true, _): return .orderedListIndentSecondOrder
+        case (false, 0): return .unorderedList
+        case (false, 1): return .unorderedListIndentFirstOrder
+        case (false, _): return .unorderedListIndentSecondOrder
         }
     }
 
@@ -249,40 +231,6 @@ public enum SoftBreakStyle {
 /// A class that takes a [Markdown](https://daringfireball.net/projects/markdown/) string or file and returns an NSAttributedString with the applied styles. Supports Dynamic Type.
 @objc open class SwiftyMarkdown: NSObject {
     
-    static public var frontMatterRules = [
-        FrontMatterRule(openTag: "---", closeTag: "---", keyValueSeparator: ":")
-    ]
-
-    static public var blockRules = [
-        BlockRule(startRegex: try! NSRegularExpression(pattern: "^```[a-z]*$",
-                                                       options: [.anchorsMatchLines]),
-                  endToken: "```",
-                  type: MarkdownLineStyle.codeblock)
-    ]
-
-    static public var lineRules = [
-        LineRule(token: "=", type: MarkdownLineStyle.previousH1, removeFrom: .entireLine, changeAppliesTo: .previous),
-        LineRule(token: "-", type: MarkdownLineStyle.previousH2, removeFrom: .entireLine, changeAppliesTo: .previous),
-        LineRule(token: "\t\t- ", type: MarkdownLineStyle.unorderedListIndentSecondOrder, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "\t- ", type: MarkdownLineStyle.unorderedListIndentFirstOrder, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "- ",type : MarkdownLineStyle.unorderedList, removeFrom: .leading),
-        LineRule(token: "\t\t* ", type: MarkdownLineStyle.unorderedListIndentSecondOrder, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "\t* ", type: MarkdownLineStyle.unorderedListIndentFirstOrder, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "\t\t1. ", type: MarkdownLineStyle.orderedListIndentSecondOrder, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "\t1. ", type: MarkdownLineStyle.orderedListIndentFirstOrder, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "1. ",type : MarkdownLineStyle.orderedList, removeFrom: .leading),
-        LineRule(token: "* ",type : MarkdownLineStyle.unorderedList, removeFrom: .leading),
-        LineRule(token: "    ", type: MarkdownLineStyle.codeblock, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: "\t", type: MarkdownLineStyle.codeblock, removeFrom: .leading, shouldTrim: false),
-        LineRule(token: ">",type : MarkdownLineStyle.blockquote, removeFrom: .leading),
-        LineRule(token: "###### ",type : MarkdownLineStyle.h6, removeFrom: .both),
-        LineRule(token: "##### ",type : MarkdownLineStyle.h5, removeFrom: .both),
-        LineRule(token: "#### ",type : MarkdownLineStyle.h4, removeFrom: .both),
-        LineRule(token: "### ",type : MarkdownLineStyle.h3, removeFrom: .both),
-        LineRule(token: "## ",type : MarkdownLineStyle.h2, removeFrom: .both),
-        LineRule(token: "# ",type : MarkdownLineStyle.h1, removeFrom: .both),
-    ]
-    
     static public var characterRules = [
         CharacterRule(primaryTag: CharacterRuleTag(tag: "![", type: .open), otherTags: [
                 CharacterRuleTag(tag: "]", type: .close),
@@ -310,11 +258,6 @@ public enum SoftBreakStyle {
         CharacterRule(primaryTag: CharacterRuleTag(tag: "_", type: .repeating), otherTags: [], styles: [1 : CharacterStyle.italic, 2 : CharacterStyle.bold], minTags:1 , maxTags:2)
     ]
     
-    let lineProcessor = SwiftyLineProcessor(blockRules: SwiftyMarkdown.blockRules,
-                                            rules: SwiftyMarkdown.lineRules,
-                                            defaultRule: MarkdownLineStyle.body,
-                                            frontMatterRules: SwiftyMarkdown.frontMatterRules,
-                                            tableLineStyle: MarkdownLineStyle.table)
     let tokeniser = SwiftyTokeniser(with: SwiftyMarkdown.characterRules)
 
     open var tabStopInterval = CGFloat(10)
@@ -375,23 +318,45 @@ public enum SoftBreakStyle {
     /// How a newline inside a paragraph is rendered. Hard breaks (two trailing spaces
     /// or a trailing backslash) are always line breaks.
     public var softBreakStyle: SoftBreakStyle = .lineBreak
+
+    /// Rewrites the Markdown source of each paragraph, heading, list item, and table
+    /// cell before its inline content is parsed. Code is not passed through it.
+    public var inlineTransform: ((String) -> String)?
+
+    /// The link reference definitions found by the most recent attributedString(),
+    /// keyed by normalizedLinkLabel(_:). They're available to inlineTransform.
+    public private(set) var linkReferences: [String: String] = [:]
+
+    /// A link label as CommonMark matches it, for looking up linkReferences.
+    public static func normalizedLinkLabel(_ label: String) -> String {
+        return MarkdownBlockParser.normalizedLabel(label)
+    }
+
+    /// The zero-based numbers of the lines of `markdown` that are in code blocks,
+    /// fenced or indented, counting lines as separated by “\n”, “\r\n”, or “\r”.
+    /// Fence lines are included; blank lines inside a block may not be.
+    public static func codeLines(in markdown: String) -> IndexSet {
+        return MarkdownBlockParser(softBreakStyle: .lineBreak, bullet: "").parse(markdown).codeLines
+    }
+
+    func tokens(forInlineSource source: String) -> [Token] {
+        return tokeniser.process(inlineTransform?(source) ?? source)
+    }
     
     public var underlineLinks : Bool = false
     
     public var frontMatterAttributes : [String : String] {
         get {
-            return self.lineProcessor.frontMatterAttributes
+            return self.parsedFrontMatterAttributes
         }
     }
+
+    var parsedFrontMatterAttributes : [String : String] = [:]
     
     var currentType : MarkdownLineStyle = .body
     
     var string : String
 
-    var orderedListCount = 0
-    var orderedListIndentFirstOrderCount = 0
-    var orderedListIndentSecondOrderCount = 0
-    
     var previouslyFoundTokens : [Token] = []
     
     var applyAttachments = true
@@ -526,65 +491,84 @@ public enum SoftBreakStyle {
             self.string = existentMarkdownString
         }
         let attributedString = NSMutableAttributedString(string: "")
-        self.lineProcessor.processEmptyStrings = MarkdownLineStyle.body
-        let foundAttributes : [SwiftyLine] = lineProcessor.process(self.string)
-        
-        let references : [SwiftyLine] = foundAttributes.filter {
-            return (!$0.literal &&
-                    $0.line.starts(with: "[") &&
-                    $0.line.contains("]:"))
-        }
-        let referencesRemoved : [SwiftyLine] = foundAttributes.filter {
-            return ($0.literal ||
-                    !($0.line.starts(with: "[") &&
-                      $0.line.contains("]:")))
-        }
-        var keyValuePairs : [String : String] = [:]
-        for line in references {
-            let strings = line.line.components(separatedBy: "]:")
-            guard strings.count >= 2 else {
-                continue
-            }
-            var key : String = strings[0]
-            if !key.isEmpty {
-                let newstart = key.index(key.startIndex, offsetBy: 1)
-                let range : Range<String.Index> = newstart..<key.endIndex
-                key = String(key[range]).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            keyValuePairs[key] = strings[1].trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        
-        self.perfomanceLog.tag(with: "(line processing complete)")
-        
-        self.tokeniser.metadataLookup = keyValuePairs
-        
-        for (idx, line) in referencesRemoved.enumerated() {
-            if idx > 0 {
+        let parser = MarkdownBlockParser(softBreakStyle: softBreakStyle, bullet: bullet)
+        let parsed = parser.parse(self.string)
+        self.parsedFrontMatterAttributes = parsed.frontMatter
+
+        self.perfomanceLog.tag(with: "(block parsing complete)")
+
+        self.tokeniser.metadataLookup = parsed.references
+        self.linkReferences = parsed.references
+
+        // Set when the previous paragraph already ended itself with a styled newline.
+        var newlineAppended = false
+        for (idx, paragraph) in parsed.paragraphs.enumerated() {
+            if idx > 0 && !newlineAppended {
                 attributedString.append(NSAttributedString(string: "\n"))
             }
+            newlineAppended = false
 
-            // Check if this line contains table data
-            if let tableData = line.tableData {
-                attributedString.append(attributedStringForTable(tableData))
-                continue
-            }
-
+            let lineStyle: MarkdownLineStyle
+            var marker: String?
             let finalTokens: [Token]
-            if (line.lineStyle as? MarkdownLineStyle) == .horizontalRule {
+            switch paragraph.kind {
+            case .blank, .definition:
+                continue
+            case .table(let table):
+                let tableString = NSMutableAttributedString(attributedString: attributedStringForTable(table))
+                let tableRange = NSRange(location: 0, length: tableString.length)
+                tableString.addAttribute(.swiftyMarkdownLineStyle,
+                                         value: MarkdownLineStyle.table.stringValue,
+                                         range: tableRange)
+                if let listLevel = paragraph.listLevel {
+                    tableString.addAttribute(.swiftyMarkdownListLevel, value: NSNumber(value: listLevel), range: tableRange)
+                }
+                if paragraph.quoteDepth > 0 {
+                    tableString.addAttribute(.swiftyMarkdownQuoteDepth, value: NSNumber(value: paragraph.quoteDepth), range: tableRange)
+                }
+                attributedString.append(tableString)
+                // Each cell ends with its own newline, the last one included.
+                newlineAppended = true
+                continue
+            case .rule:
+                lineStyle = .horizontalRule
                 finalTokens = [Token(type: .string,
                                      inputString: String(repeating: "\u{2500}", count: 30))]
-            } else if line.literal {
+            case .code:
+                lineStyle = .codeblock
                 finalTokens = [Token(type: .string,
-                                     inputString: line.line,
+                                     inputString: paragraph.text,
                                      characterStyles: [CharacterStyle.code])]
-            } else {
-                finalTokens = self.tokeniser.process(line.line)
+            case .heading(let level):
+                lineStyle = [.h1, .h2, .h3, .h4, .h5, .h6][level - 1]
+                finalTokens = self.tokens(forInlineSource: paragraph.text)
+            case .text:
+                lineStyle = paragraph.directlyInQuote ? .blockquote : .body
+                finalTokens = self.tokens(forInlineSource: paragraph.text)
+            case let .listItem(itemMarker, ordered):
+                lineStyle = MarkdownLineStyle.listItem(ordered: ordered, level: paragraph.listLevel ?? 0)
+                marker = itemMarker
+                finalTokens = self.tokens(forInlineSource: paragraph.text)
             }
             self.previouslyFoundTokens.append(contentsOf: finalTokens)
-            self.perfomanceLog.tag(with: "(tokenising complete for line \(idx)")
+            self.perfomanceLog.tag(with: "(tokenising complete for paragraph \(idx)")
 
-            attributedString.append(attributedStringFor(tokens: finalTokens, in: line))
-
+            var tokensToRender = finalTokens
+            if lineStyle == .codeblock && paragraph.text.isEmpty {
+                // An empty line of code has no characters to carry its style, so the
+                // newline that ends it does, even at the end of the document.
+                tokensToRender = [Token(type: .string, inputString: "\n", characterStyles: [CharacterStyle.code])]
+                newlineAppended = true
+            }
+            let rendered = NSMutableAttributedString(attributedString: attributedStringFor(tokens: tokensToRender,
+                                                                                         in: SwiftyLine(line: paragraph.text, lineStyle: lineStyle),
+                                                                                         marker: marker,
+                                                                                         listLevel: paragraph.listLevel,
+                                                                                         quoteDepth: paragraph.quoteDepth))
+            if paragraph.startsCodeBlock {
+                rendered.addAttribute(.swiftyMarkdownCodeBlockStart, value: true, range: NSRange(location: 0, length: rendered.length))
+            }
+            attributedString.append(rendered)
         }
         
         self.perfomanceLog.end()
@@ -596,7 +580,15 @@ public enum SoftBreakStyle {
 
 extension SwiftyMarkdown {
     
-    func attributedStringFor( tokens : [Token], in line : SwiftyLine ) -> NSAttributedString {
+    /// - Parameters:
+    ///   - marker: For the first paragraph of a list item, its leading tabs, bullet or number, and tab.
+    ///   - listLevel: The level of the innermost list item containing the paragraph.
+    ///   - quoteDepth: How many blockquotes contain the paragraph.
+    func attributedStringFor(tokens : [Token],
+                             in line : SwiftyLine,
+                             marker: String? = nil,
+                             listLevel: Int? = nil,
+                             quoteDepth: Int = 0) -> NSAttributedString {
         
         var finalTokens = tokens
         let finalAttributedString = NSMutableAttributedString()
@@ -606,41 +598,19 @@ extension SwiftyMarkdown {
             preconditionFailure("The passed line style is not a valid Markdown Line Style")
         }
 
-        // listItem is the symbol at the start of an item, such as a bullet or number.
-        var listItem = self.bullet
-        var postSpace = " "
-        switch markdownLineStyle {
-        case .orderedList:
-            self.orderedListCount += 1
-            self.orderedListIndentFirstOrderCount = 0
-            self.orderedListIndentSecondOrderCount = 0
-            listItem = "\(self.orderedListCount)."
-            postSpace = "\t"
-        case .unorderedList:
-            postSpace = "\t"
-        case .orderedListIndentFirstOrder, .unorderedListIndentFirstOrder:
-            self.orderedListIndentFirstOrderCount += 1
-            self.orderedListIndentSecondOrderCount = 0
-            postSpace = "\t"
-            if markdownLineStyle == .orderedListIndentFirstOrder {
-                listItem = "\(self.orderedListIndentFirstOrderCount)."
-            }
-
-        case .orderedListIndentSecondOrder, .unorderedListIndentSecondOrder:
-            self.orderedListIndentSecondOrderCount += 1
-            postSpace = "\t"
-            if markdownLineStyle == .orderedListIndentSecondOrder {
-                listItem = "\(self.orderedListIndentSecondOrderCount)."
-            }
-
-        default:
-            self.orderedListCount = 0
-            self.orderedListIndentFirstOrderCount = 0
-            self.orderedListIndentSecondOrderCount = 0
-        }
+        let interval = tabStopInterval
+        // How far text inside a list item (but not its first paragraph) is indented.
+        let listIndent = listLevel.map { interval * CGFloat($0 + 1) } ?? 0
+        let quoteIndent = 20.0 * CGFloat(quoteDepth)
 
         let lineProperties : LineProperties
         attributes[.swiftyMarkdownLineStyle] = markdownLineStyle.stringValue as AnyObject
+        if let listLevel {
+            attributes[.swiftyMarkdownListLevel] = NSNumber(value: listLevel)
+        }
+        if quoteDepth > 0 {
+            attributes[.swiftyMarkdownQuoteDepth] = NSNumber(value: quoteDepth)
+        }
         switch markdownLineStyle {
         case .h1:
             lineProperties = self.h1
@@ -657,55 +627,47 @@ extension SwiftyMarkdown {
         case .codeblock:
             lineProperties = body
             let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.firstLineHeadIndent = 20.0
+            paragraphStyle.firstLineHeadIndent = 20.0 + listIndent + quoteIndent
+            paragraphStyle.headIndent = listIndent + quoteIndent
             attributes[.paragraphStyle] = paragraphStyle
         case .blockquote:
             lineProperties = self.blockquotes
             let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.firstLineHeadIndent = 20.0
-            paragraphStyle.headIndent = 20.0
+            paragraphStyle.firstLineHeadIndent = listIndent + max(20.0, quoteIndent)
+            paragraphStyle.headIndent = listIndent + max(20.0, quoteIndent)
             attributes[.paragraphStyle] = paragraphStyle
         case .unorderedList, .unorderedListIndentFirstOrder, .unorderedListIndentSecondOrder, .orderedList, .orderedListIndentFirstOrder, .orderedListIndentSecondOrder:
-            
-            let interval = tabStopInterval
-            var addition = interval
-            var indent = ""
-            switch line.lineStyle as! MarkdownLineStyle {
-            case .unorderedListIndentFirstOrder, .orderedListIndentFirstOrder:
-                addition = interval * 2
-                indent = "\t"
-            case .unorderedListIndentSecondOrder, .orderedListIndentSecondOrder:
-                addition = interval * 3
-                indent = "\t\t"
-            default:
-                break
-            }
-            
             lineProperties = body
             
             let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.tabStops = [NSTextTab(textAlignment: .left, location: interval, options: [:]), NSTextTab(textAlignment: .left, location: interval, options: [:])]
+            paragraphStyle.tabStops = [NSTextTab(textAlignment: .left, location: quoteIndent + interval, options: [:])]
             paragraphStyle.defaultTabInterval = interval
-            paragraphStyle.headIndent = addition
+            paragraphStyle.firstLineHeadIndent = quoteIndent
+            paragraphStyle.headIndent = quoteIndent + listIndent
 
             attributes[.paragraphStyle] = paragraphStyle
-            finalTokens.insert(Token(type: .string, inputString: "\(indent)\(listItem)\(postSpace)"), at: 0)
+            if let marker {
+                finalTokens.insert(Token(type: .string, inputString: marker), at: 0)
+            }
 
-        case .yaml:
-            lineProperties = body
-        case .previousH1:
-            lineProperties = body
-        case .previousH2:
-            lineProperties = body
         case .body:
             lineProperties = body
-        case .referencedLink:
+        case .yaml, .previousH1, .previousH2, .referencedLink, .table, .horizontalRule:
             lineProperties = body
-        case .table:
-            // Tables are handled separately, this shouldn't be reached
-            lineProperties = body
-        case .horizontalRule:
-            lineProperties = body
+        }
+        switch markdownLineStyle {
+        case .codeblock, .blockquote, .unorderedList, .unorderedListIndentFirstOrder, .unorderedListIndentSecondOrder,
+                .orderedList, .orderedListIndentFirstOrder, .orderedListIndentSecondOrder:
+            break
+        default:
+            // Headings, text continuing a list item, and rules inside a quote or list item.
+            let indent = quoteIndent + listIndent
+            if indent > 0 {
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.firstLineHeadIndent = indent
+                paragraphStyle.headIndent = indent
+                attributes[.paragraphStyle] = paragraphStyle
+            }
         }
         
         let paragraphStyle = attributes[.paragraphStyle] as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
@@ -797,4 +759,6 @@ public extension NSAttributedString.Key {
     static let swiftyMarkdownListLevel = NSAttributedString.Key("swiftyMarkdownListLevel")
     /// On every paragraph inside a blockquote: how many quotes enclose it.
     static let swiftyMarkdownQuoteDepth = NSAttributedString.Key("swiftyMarkdownQuoteDepth")
+    /// On the first line of each code block, so adjacent blocks can be told apart.
+    static let swiftyMarkdownCodeBlockStart = NSAttributedString.Key("swiftyMarkdownCodeBlockStart")
 }

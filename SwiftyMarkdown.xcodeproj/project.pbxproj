@@ -27,7 +27,8 @@
 		F4ACB6D023E8A8A500EA665D /* CharacterRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6CF23E8A8A500EA665D /* CharacterRule.swift */; };
 		F4ACB6D223E8B08400EA665D /* PerfomanceLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4ACB6D123E8B08400EA665D /* PerfomanceLog.swift */; };
 		OBJ_40 /* String+SwiftyMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_9 /* String+SwiftyMarkdown.swift */; };
-		OBJ_41 /* SwiftyLineProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_10 /* SwiftyLineProcessor.swift */; };
+		OBJ_41 /* SwiftyLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_10 /* SwiftyLine.swift */; };
+		A6B10C0129F00001000AB002 /* MarkdownBlockParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6B10C0129F00001000AB001 /* MarkdownBlockParser.swift */; };
 		OBJ_42 /* SwiftyMarkdown+iOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_11 /* SwiftyMarkdown+iOS.swift */; };
 		OBJ_43 /* SwiftyMarkdown+macOS.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_12 /* SwiftyMarkdown+macOS.swift */; };
 		OBJ_44 /* SwiftyMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = OBJ_13 /* SwiftyMarkdown.swift */; };
@@ -65,7 +66,8 @@
 		F4ACB6CD23E8A88400EA665D /* Token.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Token.swift; sourceTree = "<group>"; };
 		F4ACB6CF23E8A8A500EA665D /* CharacterRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterRule.swift; sourceTree = "<group>"; };
 		F4ACB6D123E8B08400EA665D /* PerfomanceLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfomanceLog.swift; sourceTree = "<group>"; };
-		OBJ_10 /* SwiftyLineProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyLineProcessor.swift; sourceTree = "<group>"; };
+		A6B10C0129F00001000AB001 /* MarkdownBlockParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownBlockParser.swift; sourceTree = "<group>"; };
+		OBJ_10 /* SwiftyLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyLine.swift; sourceTree = "<group>"; };
 		OBJ_11 /* SwiftyMarkdown+iOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftyMarkdown+iOS.swift"; sourceTree = "<group>"; };
 		OBJ_12 /* SwiftyMarkdown+macOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SwiftyMarkdown+macOS.swift"; sourceTree = "<group>"; };
 		OBJ_13 /* SwiftyMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftyMarkdown.swift; sourceTree = "<group>"; };
@@ -172,8 +174,9 @@
 		OBJ_8 /* SwiftyMarkdown */ = {
 			isa = PBXGroup;
 			children = (
+				A6B10C0129F00001000AB001 /* MarkdownBlockParser.swift */,
 				OBJ_9 /* String+SwiftyMarkdown.swift */,
-				OBJ_10 /* SwiftyLineProcessor.swift */,
+				OBJ_10 /* SwiftyLine.swift */,
 				OBJ_11 /* SwiftyMarkdown+iOS.swift */,
 				OBJ_12 /* SwiftyMarkdown+macOS.swift */,
 				OBJ_13 /* SwiftyMarkdown.swift */,
@@ -276,8 +279,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 0;
 			files = (
+				A6B10C0129F00001000AB002 /* MarkdownBlockParser.swift in Sources */,
 				OBJ_40 /* String+SwiftyMarkdown.swift in Sources */,
-				OBJ_41 /* SwiftyLineProcessor.swift in Sources */,
+				OBJ_41 /* SwiftyLine.swift in Sources */,
 				F4ACB6D223E8B08400EA665D /* PerfomanceLog.swift in Sources */,
 				F4ACB6CB23E8A5C500EA665D /* SwiftyScanner.swift in Sources */,
 				OBJ_42 /* SwiftyMarkdown+iOS.swift in Sources */,

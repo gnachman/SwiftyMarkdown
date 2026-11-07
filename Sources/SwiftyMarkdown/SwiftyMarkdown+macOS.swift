@@ -256,7 +256,7 @@ extension SwiftyMarkdown {
         let color = cellStyles.color
 
         // Tokenize cell content for inline formatting
-        let tokens = tokeniser.process(content)
+        let tokens = tokens(forInlineSource: content)
 
         // Build the attributed string for this cell
         let cellResult = NSMutableAttributedString()

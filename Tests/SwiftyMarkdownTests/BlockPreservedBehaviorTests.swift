@@ -210,7 +210,7 @@ final class BlockPreservedBehaviorTests: XCTestCase {
 
     func testParagraphAfterBlankLineFollowingTable() {
         // Models put a blank line after a table, which GFM needs to end it.
-        // BlockNewBehaviorTests.testLineDirectlyAfterTableIsARow covers the case without one.
+        // BlockStructureTests.testLineDirectlyAfterTableIsARow covers the case without one.
         let attributed = render("| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.")
         let range = (attributed.string as NSString).range(of: "After the table.")
         XCTAssertNotEqual(range.location, NSNotFound)
@@ -222,6 +222,33 @@ final class BlockPreservedBehaviorTests: XCTestCase {
         let range = (attributed.string as NSString).range(of: "After")
         XCTAssertNotEqual(range.location, NSNotFound)
         XCTAssertEqual(attributed.attribute(.swiftyMarkdownLineStyle, at: range.location, effectiveRange: nil) as? String, "h1")
+    }
+
+    // MARK: Tokenizer
+
+    func testRunsOfThreeTildesDoNotHang() {
+        // These used to loop forever.
+        XCTAssertTrue(render("This is ~~~very~~~ odd.").string.contains("very"))
+        XCTAssertTrue(render("a~~~|~~~").string.hasPrefix("a"))
+        XCTAssertTrue(render("| ~~~x~~~ |\n|---|\n| y |").string.contains("y"))
+    }
+
+    // MARK: Inline transform
+
+    func testInlineTransformAppliesToTextButNotCode() {
+        let attributed = render("# a\n\nb\n\n- c\n\n> d\n\n```\ne\n```\n\n| f |\n|---|\n| g |") { md in
+            md.inlineTransform = { $0.uppercased() }
+        }
+        XCTAssertEqual(attributed.string.components(separatedBy: "\n").filter { !$0.isEmpty },
+                       ["A", "B", "・\tC", "D", "e", "F", "G"])
+    }
+
+    func testInlineTransformSeesWholeParagraph() {
+        var seen = [String]()
+        _ = render("one\ntwo", softBreak: .space) { md in
+            md.inlineTransform = { seen.append($0); return $0 }
+        }
+        XCTAssertEqual(seen, ["one two"])
     }
 
     // MARK: Tables

@@ -234,7 +234,7 @@ class SwiftyScanner {
 				
 				let key = self.elements[metadataOpenRange.upperBound + 1..<metadataCloseRange.lowerBound].map( { String( $0.character )}).joined()
 				if self.rule.metadataLookup {
-					metadataString = self.metadata[key] ?? ""
+					metadataString = self.metadata[MarkdownBlockParser.normalizedLabel(key)] ?? ""
 				} else {
 					metadataString = key
 				}
@@ -272,6 +272,10 @@ class SwiftyScanner {
 					if !styles.contains(where: { $0.isEqualTo(style)}) {
 						styles.append(style)
 					}
+				} else if remainingTags < self.rule.maxTags {
+					// No style uses this many tags (one tilde, say), so they can't be
+					// consumed. Without this the loop never ends.
+					break
 				}
 			}
 			

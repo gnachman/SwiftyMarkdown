@@ -343,15 +343,12 @@ class SwiftyMarkdownStylingTests: SwiftyMarkdownCharacterTests {
 		XCTAssertEqual(results.foundStyles, results.expectedStyles)
 		XCTAssertEqual(results.attributedString.string, challenge.output)
 		
+		// Consecutive lines form one paragraph, joined by a line separator.
 		challenge = TokenTest(input: """
 		An asterisk: *
 		Line break
-		""", output: """
-		An asterisk: *
-		Line break
-		""", tokens: [
-			Token(type: .string, inputString: "An asterisk: *", characterStyles: []),
-			Token(type: .string, inputString: "Line break", characterStyles: [])
+		""", output: "An asterisk: *\u{2028}Line break", tokens: [
+			Token(type: .string, inputString: "An asterisk: *\u{2028}Line break", characterStyles: [])
 		])
 		results = self.attempt(challenge)
 		XCTAssertEqual(results.stringTokens.count, challenge.tokens.count )

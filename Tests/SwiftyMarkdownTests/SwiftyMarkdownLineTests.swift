@@ -52,7 +52,8 @@ class SwiftyMarkdownTests: XCTestCase {
 		smd = SwiftyMarkdown(string:heading4.input )
 		XCTAssertEqual(smd.attributedString().string, heading4.expectedOutput)
 		
-		let heading5 = StringTest(input: " ##### Heading 5 ####   ", expectedOutput: "Heading 5 ####")
+		// The closing sequence needn't match the opening one (CommonMark).
+		let heading5 = StringTest(input: " ##### Heading 5 ####   ", expectedOutput: "Heading 5")
 		smd = SwiftyMarkdown(string:heading5.input )
 		XCTAssertEqual(smd.attributedString().string, heading5.expectedOutput)
 		
@@ -76,7 +77,8 @@ class SwiftyMarkdownTests: XCTestCase {
 		smd = SwiftyMarkdown(string: allHeaders.map({ $0.input }).joined(separator: "\n"))
 		XCTAssertEqual(smd.attributedString().string, allHeaders.map({ $0.expectedOutput}).joined(separator: "\n"))
 		
-		let headerString = StringTest(input: "# Header 1\n## Header 2 ##\n### Header 3 ### \n#### Header 4#### \n##### Header 5\n###### Header 6", expectedOutput: "Header 1\nHeader 2\nHeader 3\nHeader 4\nHeader 5\nHeader 6")
+		// A closing sequence needs a space before it, so “Header 4####” keeps its hashes (CommonMark).
+		let headerString = StringTest(input: "# Header 1\n## Header 2 ##\n### Header 3 ### \n#### Header 4#### \n##### Header 5\n###### Header 6", expectedOutput: "Header 1\nHeader 2\nHeader 3\nHeader 4####\nHeader 5\nHeader 6")
 		smd = SwiftyMarkdown(string: headerString.input)
 		XCTAssertEqual(smd.attributedString().string, headerString.expectedOutput)
 		

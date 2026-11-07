@@ -10,6 +10,16 @@ import XCTest
 
 class SwiftyMarkdownTableTests: XCTestCase {
 
+    private func parsedTables(_ input: String) -> [ParsedTable] {
+        let parser = MarkdownBlockParser(softBreakStyle: .lineBreak, bullet: "・")
+        return parser.parse(input).paragraphs.compactMap { paragraph in
+            if case .table(let table) = paragraph.kind {
+                return table
+            }
+            return nil
+        }
+    }
+
     // MARK: - Basic Table Parsing Tests
 
     func testSimpleTableParsing() {
@@ -54,16 +64,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         | Text |
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        guard let tableLine = lines.first(where: { $0.tableData != nil }),
-              let table = tableLine.tableData else {
+        let tables = parsedTables(input)
+        guard let table = tables.first else {
             XCTFail("Should find table data")
             return
         }
@@ -78,16 +80,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         | Text   |
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        guard let tableLine = lines.first(where: { $0.tableData != nil }),
-              let table = tableLine.tableData else {
+        let tables = parsedTables(input)
+        guard let table = tables.first else {
             XCTFail("Should find table data")
             return
         }
@@ -102,16 +96,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         | Text  |
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        guard let tableLine = lines.first(where: { $0.tableData != nil }),
-              let table = tableLine.tableData else {
+        let tables = parsedTables(input)
+        guard let table = tables.first else {
             XCTFail("Should find table data")
             return
         }
@@ -126,16 +112,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         | A    | B      | C     |
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        guard let tableLine = lines.first(where: { $0.tableData != nil }),
-              let table = tableLine.tableData else {
+        let tables = parsedTables(input)
+        guard let table = tables.first else {
             XCTFail("Should find table data")
             return
         }
@@ -279,15 +257,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         // A line with pipes but not starting/ending with pipes should not be a table
         let input = "This | is | not | a table"
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        let hasTable = lines.contains { $0.tableData != nil }
+        let tables = parsedTables(input)
+        let hasTable = !tables.isEmpty
 
         XCTAssertFalse(hasTable, "Should not detect a table without proper formatting")
     }
@@ -299,15 +270,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         Normal text
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        let hasTable = lines.contains { $0.tableData != nil }
+        let tables = parsedTables(input)
+        let hasTable = !tables.isEmpty
 
         XCTAssertFalse(hasTable, "Should not create a table without separator")
     }
@@ -321,16 +285,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         | 1 | 2 | 3 | 4 |
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        guard let tableLine = lines.first(where: { $0.tableData != nil }),
-              let table = tableLine.tableData else {
+        let tables = parsedTables(input)
+        guard let table = tables.first else {
             XCTFail("Should find table data")
             return
         }
@@ -347,16 +303,8 @@ class SwiftyMarkdownTableTests: XCTestCase {
         |----------|----------|
         """
 
-        let processor = SwiftyLineProcessor(
-            blockRules: SwiftyMarkdown.blockRules,
-            rules: SwiftyMarkdown.lineRules,
-            defaultRule: MarkdownLineStyle.body,
-            tableLineStyle: MarkdownLineStyle.table
-        )
-
-        let lines = processor.process(input)
-        guard let tableLine = lines.first(where: { $0.tableData != nil }),
-              let table = tableLine.tableData else {
+        let tables = parsedTables(input)
+        guard let table = tables.first else {
             XCTFail("Should find table data")
             return
         }
